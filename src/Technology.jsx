@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity, ArrowDown, ArrowRight, Check, CheckCircle2, Footprints, Layers3, MoveDiagonal, Plus, RotateCcw, Ruler, ScanLine, ShieldCheck, Sparkles, Wind, Zap } from 'lucide-react'
+import { Activity, ArrowDown, ArrowRight, ArrowUpRight, Box, Check, CheckCircle2, Footprints, Layers3, MoveDiagonal, Plus, RotateCcw, Ruler, ScanLine, ShieldCheck, Sparkles, Wind, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { productImage } from './store'
 import { Adjustment } from './Storefront'
@@ -150,7 +150,10 @@ export function Simulator({ products }) {
   return <main className="simulator-page page-pad inner-page">
     <header className="fit-heading">
       <div><p className="fit-eyebrow"><span /> SISTEMA KINETRA <i>·</i> CONEXÃO</p><h1>Conectado. Ajustado <em>ao seu pé.</em></h1><p>O tênis já está conectado e reconheceu o pé. Ajuste as medidas e acompanhe a malha abrir e comprimir para firmar o encaixe.</p></div>
-      <div className="fit-session"><span className="fit-session-icon"><Activity size={18} aria-hidden="true" /></span><span><small>CONEXÃO</small><strong>Tênis conectado</strong></span></div>
+      <div className="fit-heading-actions">
+        <div className="fit-session"><span className="fit-session-icon"><Activity size={18} aria-hidden="true" /></span><span><small>CONEXÃO</small><strong>Tênis conectado</strong></span></div>
+        <a className="fit-model-link" href="/tenis_visualizador.html" target="_blank" rel="noopener noreferrer"><Box size={16} aria-hidden="true" /><span>Ver modelo 3D</span><ArrowUpRight size={14} aria-hidden="true" /></a>
+      </div>
     </header>
 
     <div className="fit-workbench">
