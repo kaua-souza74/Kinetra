@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Boxes, ChartNoAxesColumn, LayoutGrid, LogOut, Package, ShoppingBag } from 'lucide-react'
+import { Activity, ArrowRight, ArrowUpRight, BadgeCheck, Boxes, ChartNoAxesColumn, CircleDollarSign, Clock3, LayoutGrid, LogOut, Package, ShoppingBag, TriangleAlert } from 'lucide-react'
 import { date, money, payments, productImage, statuses } from './store'
+import './Admin.css'
 
 const sections = [['visao','Visão geral',LayoutGrid],['pedidos','Pedidos',ShoppingBag],['produtos','Produtos',Package],['estoque','Estoque',Boxes]]
 
@@ -16,18 +17,84 @@ function Overview({ data, select }) {
   const approved = orders.filter(item => item.status_pagamento === 'aprovado')
   const stocks = data.products.flatMap(product => product.estoque.map(item => ({ ...item, product: product.nome })))
   const low = stocks.filter(item => item.quantidade <= 3).toSorted((a,b) => a.quantidade - b.quantidade)
-  const health = stocks.length ? Math.round(stocks.filter(item => item.quantidade > 0).length / stocks.length * 100) : null
-  const metrics = [['Pedidos no período', orders.length], ['Em andamento', orders.filter(item => ['recebido','em_preparacao','enviado'].includes(item.status)).length], ['Pagamentos aprovados · sim.', approved.length], ['Total recebido · sim.', money(approved.reduce((sum, item) => sum + Number(item.total), 0))]]
+  const available = stocks.filter(item => item.quantidade > 0).length
+  const lowCount = stocks.filter(item => item.quantidade > 0 && item.quantidade <= 3).length
+  const soldOut = stocks.filter(item => item.quantidade === 0).length
+  const health = stocks.length ? Math.round(available / stocks.length * 100) : null
+  const pending = orders.filter(item => ['recebido','em_preparacao','enviado'].includes(item.status)).length
+  const totalApproved = money(approved.reduce((sum, item) => sum + Number(item.total), 0))
+  const periodLabel = period === 7 ? 'Últimos 7 dias' : 'Últimos 30 dias'
+  const firstName = data.user?.nome?.split(' ')[0] || 'Admin'
+  const featuredProduct = data.products.find(product => product.ativo) ?? data.products[0]
+  const metrics = [
+    { label: 'Pedidos no período', value: orders.length, note: periodLabel, Icon: ShoppingBag, tone: 'orange' },
+    { label: 'Em andamento', value: pending, note: 'Recebidos, em preparo ou enviados', Icon: Clock3, tone: 'sand' },
+    { label: 'Pagamentos aprovados', value: approved.length, note: 'Pagamentos simulados', Icon: BadgeCheck, tone: 'green' },
+    { label: 'Total recebido', value: totalApproved, note: 'Aprovado no período · simulado', Icon: CircleDollarSign, tone: 'purple' },
+  ]
   const counts = days.map(day => orders.filter(item => date(item.criado_em) === day).length)
   const max = Math.max(1, ...counts)
-  return <><div className="section-head dash-title"><div><p className="eyebrow">PAINEL DA LOJA</p><h1>Bom dia, {data.user.nome.split(' ')[0]}.</h1></div><div className="dash-tools"><label>Período<select value={period} onChange={e => setPeriod(Number(e.target.value))}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select></label><Link className="dash-account" to="/conta"><i aria-hidden="true">{data.user.nome.slice(0, 1).toUpperCase()}</i><span>Minha conta</span></Link></div></div>
-    <div className="metrics">{metrics.map(([name, value]) => <div className="panel" key={name}><span>{name}</span><strong>{value}</strong></div>)}</div>
-    <div className="dash-charts"><section className="panel"><h2>Saúde do estoque</h2>{health === null ? <p>Nenhuma variação cadastrada.</p> : <><div className="gauge" style={{ '--health': health + '%' }}><strong>{health}%</strong></div><p>{stocks.length} numerações em produtos ativos</p><p>{low.length} com estoque baixo ou esgotado</p></>}</section>
-    <section className="panel"><h2><ChartNoAxesColumn size={21} /> Pedidos ao longo do tempo</h2><div className="bars" aria-label="Pedidos por dia">{days.map((day,i) => <div key={day} title={day + ' · ' + counts[i] + ' pedidos'}><i style={{ '--bar': Math.max(3, counts[i] / max * 100) + '%' }} />{(period === 7 || i % 5 === 0) && <small>{day.slice(0, 5)}</small>}</div>)}</div><div className="status-strip">{Object.entries(statuses).map(([key,label]) => <span key={key}>{label} <b>{orders.filter(row => row.status === key).length}</b></span>)}</div></section></div>
-    <div className="dash-bottom"><section className="panel dark"><h2>Pedidos recentes</h2>{!data.orders.length && <p>Nenhum pedido registrado.</p>}{data.orders.slice(0, 4).map(order => <Link to={'/pedido/' + order.id} key={order.id}>#{String(order.id).slice(0,8)} · {statuses[order.status]}</Link>)}</section>
-    <section className="panel"><h2>Estoque baixo</h2>{!low.length && <p>Nenhum alerta de estoque.</p>}{low.slice(0, 4).map(item => <p key={item.id}>{item.product} · BR {item.numeracao} · {item.quantidade} un.</p>)}</section>
-    <section className="panel"><h2>Atalhos</h2><button className="button outline" onClick={() => select('produtos')}>Gerenciar produtos</button><button className="button outline" onClick={() => select('estoque')}>Atualizar estoque</button></section></div>
-  </>
+  return <div className="dashboard-overview">
+    <section className="dashboard-hero" aria-labelledby="dashboard-title">
+      <div className="dashboard-hero-copy">
+        <p className="dashboard-eyebrow"><span /> Administração <i>·</i> Visão geral</p>
+        <h1 id="dashboard-title">Bom dia, {firstName}.</h1>
+        <p>Pedidos, pagamentos e estoque da Kinetra em um só lugar.</p>
+      </div>
+      {featuredProduct && <div className="dashboard-hero-visual" aria-hidden="true"><span /><img src={productImage(featuredProduct, 'marinho')} alt="" /></div>}
+      <div className="dashboard-hero-tools">
+        <div className="dashboard-date"><span>Hoje</span><strong>{date(new Date())}</strong></div>
+        <label>Período<select value={period} onChange={e => setPeriod(Number(e.target.value))}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select></label>
+        <Link className="dash-account" to="/conta"><i aria-hidden="true">{firstName.slice(0, 1).toUpperCase()}</i><span>Minha conta</span><ArrowUpRight size={16} /></Link>
+      </div>
+    </section>
+
+    <div className="metrics" role="group" aria-label="Indicadores do período">
+      {metrics.map(({ label, value, note, Icon, tone }) => <section className="panel dash-metric" data-tone={tone} key={label}>
+        <div className="dash-metric-head"><span>{label}</span><i><Icon size={19} aria-hidden="true" /></i></div>
+        <strong>{value}</strong><small>{note}</small>
+      </section>)}
+    </div>
+
+    <div className="dash-insights">
+      <section className="panel stock-panel">
+        <div className="dash-panel-heading"><div><p className="dash-panel-kicker">INVENTÁRIO</p><h2>Saúde do estoque</h2></div><span className={'stock-flag ' + (health === null ? '' : low.length ? 'needs-attention' : 'in-good-shape')}>{health === null ? 'Sem dados' : low.length ? `${low.length} em atenção` : 'Estável'}</span></div>
+        <div className="stock-overview">
+          <div className="gauge" role="img" aria-label={health === null ? 'Sem dados de estoque' : `Disponibilidade do estoque: ${health}%`} style={{ '--health': (health ?? 0) + '%' }}><strong>{health === null ? '—' : `${health}%`}</strong></div>
+          <div className="stock-overview-copy"><strong>{health === null ? 'Sem dados de estoque' : `${available} de ${stocks.length} numerações com estoque`}</strong><p>{health === null ? 'Cadastre numerações para acompanhar.' : low.length ? `${low.length} variações precisam de atenção.` : 'Nenhuma variação em nível crítico.'}</p><button className="dash-inline-action" onClick={() => select('estoque')}>Conferir estoque <ArrowRight size={15} /></button></div>
+        </div>
+        <div className="stock-breakdown"><div><i className="available-dot" /><span>Com estoque</span><strong>{available}</strong></div><div><i className="low-dot" /><span>Estoque baixo</span><strong>{lowCount}</strong></div><div><i className="empty-dot" /><span>Esgotado</span><strong>{soldOut}</strong></div></div>
+      </section>
+
+      <section className="panel orders-chart-panel">
+        <div className="dash-panel-heading"><div><p className="dash-panel-kicker">ATIVIDADE</p><h2><ChartNoAxesColumn size={19} aria-hidden="true" /> Pedidos ao longo do tempo</h2></div><span className="chart-total">{orders.length}<small>no período</small></span></div>
+        <div className="chart-stage">
+          {!orders.length && <p className="chart-empty">Nenhum pedido neste período</p>}
+          <div className="bars" role="img" aria-label={`${orders.length} pedidos nos ${period} dias selecionados`}>
+            {days.map((day, i) => <div key={day} title={day + ' · ' + counts[i] + ' pedidos'}><i style={{ '--bar': counts[i] ? Math.max(8, counts[i] / max * 100) + '%' : '0%' }} />{(period === 7 || i % 5 === 0) && <small>{day.slice(0, 5)}</small>}</div>)}
+          </div>
+        </div>
+        <div className="status-strip">{Object.entries(statuses).map(([key, label]) => <span key={key}>{label} <b>{orders.filter(row => row.status === key).length}</b></span>)}</div>
+      </section>
+    </div>
+
+    <div className="dash-lower">
+      <section className="panel recent-orders-panel"><div className="dash-panel-heading"><div><p className="dash-panel-kicker">ACOMPANHAMENTO</p><h2>Pedidos recentes</h2></div><ShoppingBag size={19} aria-hidden="true" /></div>
+        {!data.orders.length && <p className="dash-empty"><ShoppingBag size={17} aria-hidden="true" /> Nenhum pedido registrado.</p>}
+        {data.orders.slice(0, 4).map(order => <Link className="recent-order" to={'/pedido/' + order.id} key={order.id}><span className="recent-order-mark"><ShoppingBag size={16} aria-hidden="true" /></span><span className="recent-order-copy"><strong>Pedido #{String(order.id).slice(0, 8)}</strong><small>{date(order.criado_em)}</small></span><span className="recent-order-status">{statuses[order.status] ?? 'Em atualização'}</span><ArrowRight size={15} aria-hidden="true" /></Link>)}
+      </section>
+
+      <section className="panel low-stock-panel"><div className="dash-panel-heading"><div><p className="dash-panel-kicker">PONTO DE ATENÇÃO</p><h2>Estoque baixo</h2></div><TriangleAlert size={19} aria-hidden="true" /></div>
+        {!low.length && <p className="dash-empty">Nenhum alerta de estoque.</p>}
+        {low.slice(0, 4).map(item => <div className="stock-alert-row" key={item.id}><span className="stock-alert-mark"><TriangleAlert size={15} aria-hidden="true" /></span><span><strong>{item.product}</strong><small>BR {item.numeracao}</small></span><b>{item.quantidade === 0 ? 'Esgotado' : `${item.quantidade} un.`}</b></div>)}
+      </section>
+
+      <section className="panel quick-actions-panel"><div className="dash-panel-heading"><div><p className="dash-panel-kicker">ACESSO RÁPIDO</p><h2>Atalhos</h2></div><Activity size={19} aria-hidden="true" /></div>
+        <button className="quick-action" onClick={() => select('produtos')}><span className="quick-action-icon"><Package size={18} aria-hidden="true" /></span><span><strong>Gerenciar produtos</strong><small>Editar catálogo e preços</small></span><ArrowRight size={16} aria-hidden="true" /></button>
+        <button className="quick-action" onClick={() => select('estoque')}><span className="quick-action-icon"><Boxes size={18} aria-hidden="true" /></span><span><strong>Atualizar estoque</strong><small>Conferir numerações</small></span><ArrowRight size={16} aria-hidden="true" /></button>
+      </section>
+    </div>
+  </div>
 }
 
 function ProductEditor({ data, save }) {
@@ -73,7 +140,7 @@ export function Admin({ data }) {
     setMessage(null)
     try { await action(new FormData(e.currentTarget)); setMessage({ text: 'Alterações salvas.' }) } catch (error) { setMessage({ error: true, text: error.message }) } finally { setBusy(false) }
   }
-  return <main className="dashboard"><aside className="dash-nav"><Link className="brand" to="/" aria-label="Voltar à loja">K<span>.</span></Link><nav aria-label="Administração">{sections.map(([id, label, Icon]) => <button key={id} aria-pressed={tab === id} onClick={() => select(id)}><Icon size={20} /><span>{label}</span></button>)}</nav><button onClick={() => data.logout().catch(error => setMessage({ error: true, text: error.message }))}><LogOut size={20} /><span>Sair</span></button></aside>
+  return <main className="dashboard"><aside className="dash-nav"><div className="dash-brand"><Link className="brand" to="/" aria-label="Voltar à loja"><span className="dash-brand-mark"><span className="dash-brand-letter">K</span><i className="dash-brand-dot" aria-hidden="true" /></span></Link><span><strong>KINETRA</strong><small>PAINEL ADMIN</small></span></div><p className="dash-nav-heading">MENU PRINCIPAL</p><nav aria-label="Administração">{sections.map(([id, label, Icon]) => <button className="dash-nav-item" key={id} aria-pressed={tab === id} onClick={() => select(id)}><Icon size={19} /><span>{label}</span><ArrowRight className="dash-nav-chevron" size={15} /></button>)}</nav><div className="dash-nav-spacer" /><Link className="dash-nav-store" to="/"><ArrowUpRight size={17} /><span>Ver loja</span></Link><button className="dash-nav-logout" onClick={() => data.logout().catch(error => setMessage({ error: true, text: error.message }))}><LogOut size={18} /><span>Sair</span></button></aside>
     <div className="dash-main" aria-busy={busy}>{message && <p role={message.error ? 'alert' : 'status'} className={message.error ? 'error' : 'notice'}>{message.text}</p>}<div className="switch-content" key={tab}>{tab === 'visao' && <Overview data={data} select={select} />}{tab === 'produtos' && <ProductEditor data={data} save={save} />}{tab === 'estoque' && <StockEditor data={data} save={save} />}{tab === 'pedidos' && <OrderEditor data={data} save={save} />}</div></div>
   </main>
 }

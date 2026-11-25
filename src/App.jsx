@@ -68,7 +68,7 @@ function Header({ data }) {
   return <header className="site-header" onKeyDown={closeWithEscape} onClick={event => { if (event.target.closest('a')) setActive('') }}><Brand cream />
     <nav ref={nav} id="nav-principal" className={active === 'menu' ? 'main-nav expanded' : 'main-nav'} aria-label="Principal">
       <span ref={indicator} className="nav-indicator" aria-hidden="true" />
-      <NavLink to="/" end>Início</NavLink><NavLink to="/loja">Loja</NavLink><NavLink to="/colecao">Coleção</NavLink><NavLink to="/como-funciona">Como funciona</NavLink><NavLink to="/simulador">Simulador</NavLink>
+      <NavLink to="/" end>Início</NavLink><NavLink to="/loja">Loja</NavLink><NavLink to="/colecao">Coleção</NavLink><NavLink to="/como-funciona">Como funciona</NavLink><NavLink to="/simulador">Conexão</NavLink>
     </nav>
     <div className="header-actions"><button ref={searchButton} className="icon-button" aria-label={searchOpen ? 'Fechar pesquisa' : 'Pesquisar'} aria-controls="pesquisa-loja" aria-expanded={searchOpen} onClick={() => setActive(searchOpen ? '' : 'search')}>{searchOpen ? <X size={20} /> : <Search size={20} />}</button>
       {data.role === 'admin' && <Link className="icon-button admin-shortcut" to="/admin" aria-label="Administração"><LayoutDashboard size={19} /></Link>}
@@ -94,7 +94,7 @@ function Footer({ data, home, motion, toggleMotion }) {
       <div className="footer-intro"><Brand cream /><p>Tênis adaptativo desenvolvido como projeto acadêmico do SENAI.</p></div>
       <nav className="footer-links" aria-label="Explore a Kinetra">
         <h2>Explore</h2>
-        <Link to="/loja">Loja</Link><Link to="/colecao">Coleção</Link><Link to="/como-funciona">Como funciona</Link><Link to="/simulador">Simulador</Link>
+        <Link to="/loja">Loja</Link><Link to="/colecao">Coleção</Link><Link to="/como-funciona">Como funciona</Link><Link to="/simulador">Conexão</Link>
       </nav>
       <nav className="footer-links" aria-label="Conta e sacola">
         <h2>Sua conta</h2>
@@ -142,7 +142,8 @@ function Site() {
   const authPath = pathname.replace(/\/$/, '')
   const authMode = Object.hasOwn(authModes, authPath) ? authModes[authPath] : null
   const authPage = Boolean(authMode)
-  const adminPage = pathname.startsWith('/admin') && data.role === 'admin'
+  const adminRoute = pathname.startsWith('/admin')
+  const adminPage = adminRoute && data.role === 'admin'
   useWheelMomentum((pathname === '/' || pathname === '/como-funciona') && motion)
   useScrollReveals(shell, pathname, motion)
   function toggleMotion() {
@@ -153,7 +154,6 @@ function Site() {
   return <><PageScroll /><a className="skip" href="#conteudo">Ir para o conteúdo</a>
   <div ref={shell} className={authPage ? 'auth-shell' : adminPage ? 'admin-shell' : 'site-shell'} id="conteudo" data-motion={motion ? 'on' : 'off'}>
     {!authPage && !adminPage && <Header data={data} />}
-    {data.demo && !data.session && !authPage && <div className="demo-banner">Demonstração local <button onClick={() => data.logout().catch(console.error)}>Sair da demonstração</button></div>}
     {authMode ? <Auth mode={authMode} data={data} motion={motion} toggleMotion={toggleMotion} /> : <div className="page-transition" key={pathname}><Routes>
       <Route path="/" element={<Home products={data.products} motion={motion} />} />
       <Route path="/loja" element={<Shop products={data.products} />} />

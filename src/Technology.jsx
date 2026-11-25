@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowLeftRight, ArrowUpDown, Bluetooth, Check, Footprints, Layers3, Minus, MoveDiagonal, Plus, RotateCcw, ScanLine, ShieldCheck, Wind, Zap } from 'lucide-react'
+import { Activity, ArrowDown, ArrowRight, Check, CheckCircle2, Footprints, Layers3, MoveDiagonal, Plus, RotateCcw, Ruler, ScanLine, ShieldCheck, Sparkles, Wind, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { assets, productImage } from './store'
+import { productImage } from './store'
 import { Adjustment } from './Storefront'
 import './Technology.css'
 
@@ -22,8 +22,8 @@ const layers = [
 const questions = [
   ['O tênis muda de tamanho enquanto corro?', 'A proposta prevê ajuste de comprimento com a pessoa parada. Durante a atividade, a estrutura permaneceria travada.'],
   ['O mesmo par serve para qualquer pé?', 'O ajuste teria uma faixa limitada. A numeração inicial, a forma do pé e os limites do mecanismo ainda precisariam ser avaliados no protótipo.'],
-  ['Posso ajustar o comprimento e a largura separadamente?', 'No simulador da Kinetra, sim. Você escolhe um eixo e pode expandir ou reduzir em níveis ilustrativos.'],
-  ['O simulador se conecta a um tênis real?', 'A conexão é virtual. A página pode ser usada sem Bluetooth, sem instalar aplicativo e sem parear um dispositivo.'],
+  ['Posso ajustar o comprimento e a largura separadamente?', 'Sim. A conexão permite definir as duas medidas do pé e acompanhar o encaixe ilustrativo em cada etapa.'],
+  ['O ajuste acontece em um tênis físico?', 'Não. A página encena a conexão e o reconhecimento do pé, mas não conecta nem controla um calçado físico.'],
   ['Qual é a autonomia prevista?', 'O projeto Adapt X 2100 propõe uma bateria Li-S de 6 Wh e autonomia alvo de até três dias. Essa meta depende de pesquisa e testes.'],
 ]
 
@@ -35,9 +35,9 @@ export function Technology({ products, motion }) {
       <div className="tech-hero-copy">
         <p className="eyebrow">TECNOLOGIA KINETRA</p>
         <h1 id="tech-title">A forma segue <em>o seu pé.</em></h1>
-        <p>Do espaço para calçar à firmeza para se movimentar. Entenda como o Forma foi pensado para mudar de dimensão e experimente o ajuste manual.</p>
+        <p>Do espaço para calçar à firmeza para se movimentar. Entenda como o Forma foi pensado para mudar de dimensão e conheça o painel de conexão.</p>
         <div className="tech-actions">
-          <Link className="button primary" to="/simulador">Experimentar simulador</Link>
+          <Link className="button primary" to="/simulador">Abrir conexão</Link>
           <button className="button outline" type="button" onClick={() => {
             steps.current?.focus({ preventScroll: true })
             steps.current?.scrollIntoView({ behavior: motion ? 'smooth' : 'instant', block: 'start' })
@@ -81,87 +81,132 @@ export function Technology({ products, motion }) {
     </section>
 
     <section className="tech-cta page-pad" data-reveal>
-      <div><h2>Controle o ajuste.</h2><p>Conecte o tênis virtual e veja como a expansão e a redução aparecem no modelo.</p></div>
-      <Link className="button primary" to="/simulador">Abrir simulador</Link>
+      <div><h2>Controle o ajuste.</h2><p>Veja a conexão reconhecer o pé, liberar espaço e comprimir a malha até o encaixe.</p></div>
+      <Link className="button primary" to="/simulador">Abrir conexão</Link>
     </section>
   </main>
 }
 
-const axes = {
-  comprimento: { label: 'Comprimento', Icon: ArrowLeftRight },
-  largura: { label: 'Largura', Icon: ArrowUpDown },
-}
-const base = { comprimento: 0, largura: 0 }
-const minFit = -3
-const maxFit = 3
-const displayFit = value => value > 0 ? '+' + value : String(value)
+const defaultFoot = { length: 27.4, width: 10.3, volume: 68 }
+const fitStages = [
+  ['Conexão ativa', 'Tênis pareado com o painel'],
+  ['Pé reconhecido', 'Sensores identificaram o calce'],
+  ['Leitura do contorno', 'Medidas e pontos de pressão'],
+  ['Compressão e alívio', 'Câmaras liberam e firmam o encaixe'],
+  ['Encaixe confirmado', 'Forma estabilizada para se movimentar'],
+]
+const formatMeasure = value => Number(value).toFixed(1).replace('.', ',')
 
 export function Simulator({ products }) {
-  const [connection, setConnection] = useState('disconnected')
-  const [axis, setAxis] = useState('comprimento')
-  const [fit, setFit] = useState(base)
-  const timer = useRef(null)
-  const ready = connection === 'connected'
-  const connecting = connection === 'connecting'
-  const forma = products.find(item => item.slug === 'kinetra-forma')
-  const level = fit[axis]
-  const status = ready ? 'Conectado virtualmente' : connecting ? 'Conectando ao tênis virtual…' : 'Desconectado'
+  const [foot, setFoot] = useState(defaultFoot)
+  const [stage, setStage] = useState('ready')
+  const [result, setResult] = useState({ length: 1, width: 1, support: 0 })
+  const timers = useRef([])
+  const forma = products.find(item => item.slug === 'kinetra-forma') ?? products[0]
+  const isRunning = ['scanning', 'expanding', 'compressing', 'balancing'].includes(stage)
+  const stageIndex = ({ ready: 1, scanning: 2, expanding: 3, compressing: 3, balancing: 4, complete: 4 })[stage]
+  const statusText = ({ ready: 'Tênis conectado · pé reconhecido', scanning: 'Lendo contorno e pressão', expanding: 'Expelindo ar', compressing: 'Comprimindo a malha', balancing: 'Firmando o encaixe ao pé', complete: 'Ajuste concluído' })[stage]
+  const target = {
+    length: .9 + ((foot.length - 24) / 6) * .2,
+    width: .88 + ((foot.width - 8) / 4) * .24,
+    support: Math.round(48 + ((foot.volume - 50) / 40) * 32),
+  }
+  const shoeLength = stage === 'ready' ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.length + .13 : stage === 'compressing' ? target.length + .045 : result.length
+  const shoeWidth = stage === 'ready' ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.width + .16 : stage === 'compressing' ? target.width + .025 : result.width
+  const progress = stage === 'ready' ? 30 : stage === 'scanning' ? 46 : stage === 'expanding' ? 66 : stage === 'compressing' ? 82 : stage === 'balancing' ? 94 : 100
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  function toggleConnection() {
-    if (connection !== 'disconnected') {
-      clearTimeout(timer.current)
-      setConnection('disconnected')
-      return
-    }
-    setConnection('connecting')
-    timer.current = setTimeout(() => setConnection('connected'), 720)
+  function startAdjustment() {
+    if (isRunning) return
+    timers.current.forEach(clearTimeout)
+    setStage('scanning')
+    setResult({ length: .91, width: .91, support: 0 })
+    const fitted = { length: target.length, width: target.width, support: target.support }
+    timers.current = [
+      setTimeout(() => setStage('expanding'), 900),
+      setTimeout(() => setStage('compressing'), 1950),
+      setTimeout(() => { setResult(fitted); setStage('balancing') }, 3050),
+      setTimeout(() => setStage('complete'), 4050),
+    ]
   }
 
-  function adjust(value) {
-    if (!ready) return
-    setFit(previous => ({ ...previous, [axis]: Math.max(minFit, Math.min(maxFit, value)) }))
+  function updateFoot(key, value) {
+    setFoot(previous => ({ ...previous, [key]: Number(value) }))
+    if (stage === 'complete') {
+      setStage('ready')
+      setResult({ length: 1, width: 1, support: 0 })
+    }
+  }
+
+  function resetFoot() {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    setFoot(defaultFoot)
+    setStage('ready')
+    setResult({ length: 1, width: 1, support: 0 })
   }
 
   return <main className="simulator-page page-pad inner-page">
-    <header className="sim-heading">
-      <p className="eyebrow">DEMONSTRAÇÃO INTERATIVA</p>
-      <h1>Simulador de ajuste</h1>
-      <p>Conecte um Kinetra virtual e ajuste o comprimento e a largura para ver a mudança na tela.</p>
+    <header className="fit-heading">
+      <div><p className="fit-eyebrow"><span /> SISTEMA KINETRA <i>·</i> CONEXÃO</p><h1>Conectado. Ajustado <em>ao seu pé.</em></h1><p>O tênis já está conectado e reconheceu o pé. Ajuste as medidas e acompanhe a malha abrir e comprimir para firmar o encaixe.</p></div>
+      <div className="fit-session"><span className="fit-session-icon"><Activity size={18} aria-hidden="true" /></span><span><small>CONEXÃO</small><strong>Tênis conectado</strong></span></div>
     </header>
-    <div className="sim-grid">
-      <figure className="sim-preview" data-connection={connection} data-axis={axis}>
-        <div className="sim-preview-top"><span>KINETRA FORMA</span><span><i />{ready ? 'ONLINE' : connecting ? 'CONECTANDO' : 'OFFLINE'}</span></div>
-        <div className="sim-art">
-          <div className="sim-grid-overlay" aria-hidden="true" />
-          <img src={productImage(forma, 'marinho')} alt="Prévia ilustrativa do Kinetra Forma" width="1536" height="1024"
-            style={{ '--fit-length': 1 + fit.comprimento * .045, '--fit-width': 1 + fit.largura * .045 }} />
+
+    <div className="fit-workbench">
+      <section className="fit-scene" data-stage={stage} aria-label="Painel de conexão e ajuste Kinetra">
+        <div className="fit-scene-grid" aria-hidden="true" />
+        <div className="fit-scene-glow" aria-hidden="true" />
+        <div className="fit-orbit fit-orbit-one" aria-hidden="true" />
+        <div className="fit-orbit fit-orbit-two" aria-hidden="true" />
+        <div className="fit-scene-head"><span>FORMA <i>01</i></span><span className={'fit-state-chip ' + (stage === 'complete' ? 'is-complete' : isRunning ? 'is-running' : 'is-connected')}><i />{stage === 'complete' ? 'AJUSTE CONFIRMADO' : isRunning ? statusText : 'TÊNIS CONECTADO'}</span></div>
+
+        <div className="fit-foot-map" aria-hidden="true">
+          <svg viewBox="0 0 150 205"><path d="M67 12c-13-2-20 9-20 24 0 14 5 23-1 35-7 13-20 22-25 43-7 29 4 58 22 73 14 12 36 13 51 3 20-13 31-41 29-66-1-20-10-33-18-47-7-12-7-26-8-42-1-17-9-25-20-24-4 0-7 2-10 4z"/><circle cx="65" cy="48" r="5"/><circle cx="48" cy="88" r="4"/><circle cx="76" cy="94" r="4"/><circle cx="44" cy="126" r="5"/><circle cx="79" cy="135" r="5"/><circle cx="59" cy="161" r="4"/></svg>
+          <span>{stage === 'complete' ? 'ENCAIXE ESTÁVEL' : isRunning ? 'LEITURA DO PÉ' : 'PÉ DETECTADO'}</span>
         </div>
-        <figcaption className="sim-readouts">{Object.entries(axes).map(([key, { label, Icon }]) => <div key={key} data-active={axis === key}><Icon size={18} aria-hidden="true" /><span>{label}</span><strong>{displayFit(fit[key])}</strong></div>)}</figcaption>
-      </figure>
-      <div className="sim-controls">
-        <section className="sim-panel" aria-labelledby="sim-connection">
-          <div className="sim-panel-header"><Bluetooth size={25} aria-hidden="true" /><div><h2 id="sim-connection">Conexão</h2><p role="status">{status}</p></div>{ready && <Check size={20} aria-hidden="true" />}</div>
-          <button className={'button ' + (ready || connecting ? 'outline' : 'primary')} type="button" onClick={toggleConnection}>
-            {ready ? 'Desconectar' : connecting ? 'Cancelar conexão' : 'Conectar tênis virtual'}
-          </button>
-        </section>
-        <section className="sim-panel" aria-labelledby="sim-adjust-title">
-          <h2 id="sim-adjust-title">Ajuste manual</h2>
-          <fieldset disabled={!ready}>
-            <legend>Eixo de ajuste</legend>
-            <div className="sim-axis">{Object.entries(axes).map(([key, { label, Icon }]) => <button key={key} type="button" className="button outline" aria-pressed={axis === key} onClick={() => setAxis(key)}>
-              <Icon size={16} aria-hidden="true" />{label}
-            </button>)}</div>
-            <div className="sim-level"><label htmlFor="fit-level">Nível de {axes[axis].label.toLowerCase()}</label><output htmlFor="fit-level">{displayFit(level)}</output></div>
-            <input id="fit-level" type="range" min={minFit} max={maxFit} step="1" value={level} aria-valuetext={level === 0 ? 'Neutro' : displayFit(level) + ' níveis'} onChange={e => adjust(Number(e.target.value))} />
-            <div className="sim-adjust-actions"><button type="button" className="button outline" disabled={level === minFit} onClick={() => adjust(level - 1)}><Minus size={17} aria-hidden="true" /> Diminuir</button><button type="button" className="button primary" disabled={level === maxFit} onClick={() => adjust(level + 1)}><Plus size={17} aria-hidden="true" /> Expandir</button></div>
-            <button type="button" className="text-button sim-reset" disabled={fit.comprimento === 0 && fit.largura === 0} onClick={() => setFit(base)}><RotateCcw size={15} aria-hidden="true" /> Restaurar padrão</button>
-          </fieldset>
-          <p className="sim-note">{ready ? 'Os níveis são ilustrativos e representam o ajuste virtual.' : 'Conecte o tênis virtual para liberar os controles.'}</p>
-        </section>
-      </div>
+
+        <div className="fit-sensors" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</div>
+        <div className="fit-scan-beam" aria-hidden="true" />
+        <div className="fit-pressure-rings" aria-hidden="true"><i /><i /><i /></div>
+        <div className="fit-airflow" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
+        <div className="fit-shoe-wrap" style={{ '--shoe-x': shoeLength, '--shoe-y': shoeWidth }}>
+          {forma && <img className="fit-shoe" src={productImage(forma, 'marinho')} alt="Tênis Kinetra Forma se ajustando ao perfil do pé" width="1536" height="1024" />}
+        </div>
+
+        <div className="fit-callout fit-callout-length"><Ruler size={14} aria-hidden="true" /><span>COMPRIMENTO</span><strong>{formatMeasure(foot.length)} cm</strong></div>
+        <div className="fit-callout fit-callout-width"><MoveDiagonal size={14} aria-hidden="true" /><span>LARGURA</span><strong>{formatMeasure(foot.width)} cm</strong></div>
+        <div className="fit-scene-foot"><span className="fit-live-dot" />{stage === 'complete' ? 'ENCAIXE ESTABILIZADO' : isRunning ? 'AJUSTE EM PROCESSO' : 'PÉ DETECTADO · SENSORES ATIVOS'}</div>
+        <div className="fit-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+      </section>
+
+      <aside className="fit-panel">
+        <div className="fit-panel-top"><div><p className="fit-panel-kicker">PÉ RECONHECIDO</p><h2>Seu encaixe</h2></div><span className="fit-panel-icon"><Footprints size={20} aria-hidden="true" /></span></div>
+        <p className="fit-panel-intro">A conexão reconheceu o calce. Ao ajustar, as câmaras aliviam a pressão e comprimem a malha até firmar o tênis ao seu perfil.</p>
+
+        <div className="fit-controls" aria-busy={isRunning}>
+          <label className="fit-control" htmlFor="fit-length"><span><span>Comprimento</span><output>{formatMeasure(foot.length)} <small>cm</small></output></span><input id="fit-length" type="range" min="24" max="30" step="0.1" value={foot.length} disabled={isRunning} onChange={event => updateFoot('length', event.target.value)} /><span className="fit-control-bounds"><small>24 cm</small><small>30 cm</small></span></label>
+          <label className="fit-control" htmlFor="fit-width"><span><span>Largura do antepé</span><output>{formatMeasure(foot.width)} <small>cm</small></output></span><input id="fit-width" type="range" min="8" max="12" step="0.1" value={foot.width} disabled={isRunning} onChange={event => updateFoot('width', event.target.value)} /><span className="fit-control-bounds"><small>8 cm</small><small>12 cm</small></span></label>
+          <label className="fit-control" htmlFor="fit-volume"><span><span>Volume do peito do pé</span><output>{foot.volume}<small>%</small></output></span><input id="fit-volume" type="range" min="50" max="90" step="1" value={foot.volume} disabled={isRunning} onChange={event => updateFoot('volume', event.target.value)} /><span className="fit-control-bounds"><small>Mais baixo</small><small>Mais alto</small></span></label>
+        </div>
+
+        <div className="fit-result" data-visible={stage === 'complete'} aria-live="polite">
+          <span className="fit-result-icon"><CheckCircle2 size={19} aria-hidden="true" /></span>
+          <span><strong>{stage === 'complete' ? 'Ajuste ao pé concluído' : 'Pronto para ajustar'}</strong><small>{stage === 'complete' ? `Malha estabilizada · apoio ${result.support}%` : 'Conexão ativa · pé reconhecido'}</small></span>
+        </div>
+
+        <button className="fit-start-button" type="button" onClick={startAdjustment} disabled={isRunning}>
+          {isRunning ? <><span className="fit-button-spinner" aria-hidden="true" /> Ajustando o Forma…</> : <><Sparkles size={18} aria-hidden="true" /> {stage === 'complete' ? 'Reajustar ao pé' : 'Ajustar ao pé'} <ArrowRight size={17} aria-hidden="true" /></>}
+        </button>
+        <button className="fit-reset" type="button" onClick={resetFoot} disabled={isRunning}><RotateCcw size={14} aria-hidden="true" /> Restaurar medidas</button>
+      </aside>
     </div>
+
+    <ol className="fit-steps" aria-label="Etapas da conexão e ajuste">
+      {fitStages.map(([title, detail], index) => <li key={title} data-state={index < stageIndex ? 'complete' : index === stageIndex ? 'active' : 'upcoming'} aria-current={index === stageIndex ? 'step' : undefined}>
+        <span className="fit-step-mark">{index < stageIndex ? <Check size={15} aria-hidden="true" /> : <small>0{index + 1}</small>}</span><span><strong>{title}</strong><small>{index === stageIndex ? statusText : detail}</small></span>
+      </li>)}
+    </ol>
+    <p className="fit-footnote"><ShieldCheck size={15} aria-hidden="true" /> Conexão ilustrativa: nenhum tênis físico está conectado; os sensores são representados na tela.</p>
   </main>
 }

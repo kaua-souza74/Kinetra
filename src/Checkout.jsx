@@ -15,7 +15,7 @@ function addressData(form) {
   return { ...Object.fromEntries(fields.map(([key]) => [key, data.get(key)?.trim() ?? ''])), estado: data.get('estado').toUpperCase(), principal: data.has('principal') }
 }
 function compactAddress(item) {
-  return item.retirada ? 'Retirada · demonstração' : [item.logradouro && item.logradouro + ', ' + item.numero, item.cidade, item.estado, item.cep].filter(Boolean).join(' · ')
+  return item.retirada ? 'Retirada na loja' : [item.logradouro && item.logradouro + ', ' + item.numero, item.cidade, item.estado, item.cep].filter(Boolean).join(' · ')
 }
 function enrich(data) {
   return data.cart.map(item => {

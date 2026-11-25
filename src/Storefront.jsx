@@ -29,6 +29,7 @@ export function Home({ products, motion }) {
       <div className="hero-showcase" data-color={color}>
         <div className="hero-art">
           <div className="hero-ring" aria-hidden="true" />
+          <div className="hero-particles" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div>
           <img key={color} src={productImage(product, color)} alt={(product?.nome ?? 'Kinetra Forma') + ' na cor ' + colors[color].name} fetchPriority="high" width="1536" height="1024" />
           <span className="hero-note hero-note-fit" aria-hidden="true">Ajuste automático</span>
           <span className="hero-note hero-note-sole" aria-hidden="true">Solado segmentado</span>
