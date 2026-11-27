@@ -89,7 +89,7 @@ export function Technology({ products, motion }) {
 
 const defaultFoot = { length: 27.4, width: 10.3, volume: 68 }
 const fitStages = [
-  ['Conexão ativa', 'Tênis pareado com o painel'],
+  ['Conectar tênis', 'Parear o Adapt X com o painel'],
   ['Pé reconhecido', 'Sensores identificaram o calce'],
   ['Leitura do contorno', 'Medidas e pontos de pressão'],
   ['Compressão e alívio', 'Câmaras liberam e firmam o encaixe'],
@@ -99,26 +99,37 @@ const formatMeasure = value => Number(value).toFixed(1).replace('.', ',')
 
 export function Simulator({ products }) {
   const [foot, setFoot] = useState(defaultFoot)
-  const [stage, setStage] = useState('ready')
+  const [stage, setStage] = useState('disconnected')
   const [result, setResult] = useState({ length: 1, width: 1, support: 0 })
   const timers = useRef([])
   const forma = products.find(isAdaptXProduct) ?? products[0]
-  const isRunning = ['scanning', 'expanding', 'compressing', 'balancing'].includes(stage)
-  const stageIndex = ({ ready: 1, scanning: 2, expanding: 3, compressing: 3, balancing: 4, complete: 4 })[stage]
-  const statusText = ({ ready: 'Tênis conectado · pé reconhecido', scanning: 'Lendo contorno e pressão', expanding: 'Expelindo ar', compressing: 'Comprimindo a malha', balancing: 'Firmando o encaixe ao pé', complete: 'Ajuste concluído' })[stage]
+  const isRunning = ['connecting', 'scanning', 'expanding', 'compressing', 'balancing'].includes(stage)
+  const isConnected = !['disconnected', 'connecting'].includes(stage)
+  const stageIndex = ({ disconnected: 0, connecting: 0, ready: 1, scanning: 2, expanding: 3, compressing: 3, balancing: 4, complete: 4 })[stage]
+  const statusText = ({ disconnected: 'Aguardando conexão', connecting: 'Conectando ao Adapt X 2050', ready: 'Sensor reconheceu o pé', scanning: 'Lendo contorno e pressão', expanding: 'Expelindo ar', compressing: 'Comprimindo a malha', balancing: 'Firmando o encaixe ao pé', complete: 'Ajuste concluído' })[stage]
   const target = {
     length: .9 + ((foot.length - 24) / 6) * .2,
     width: .88 + ((foot.width - 8) / 4) * .24,
     support: Math.round(48 + ((foot.volume - 50) / 40) * 32),
   }
-  const shoeLength = stage === 'ready' ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.length + .13 : stage === 'compressing' ? target.length + .045 : result.length
-  const shoeWidth = stage === 'ready' ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.width + .16 : stage === 'compressing' ? target.width + .025 : result.width
-  const progress = stage === 'ready' ? 30 : stage === 'scanning' ? 46 : stage === 'expanding' ? 66 : stage === 'compressing' ? 82 : stage === 'balancing' ? 94 : 100
+  const shoeLength = ['disconnected', 'connecting', 'ready'].includes(stage) ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.length + .13 : stage === 'compressing' ? target.length + .045 : result.length
+  const shoeWidth = ['disconnected', 'connecting', 'ready'].includes(stage) ? .96 : stage === 'scanning' ? .98 : stage === 'expanding' ? target.width + .16 : stage === 'compressing' ? target.width + .025 : result.width
+  const progress = stage === 'disconnected' ? 0 : stage === 'connecting' ? 18 : stage === 'ready' ? 30 : stage === 'scanning' ? 46 : stage === 'expanding' ? 66 : stage === 'compressing' ? 82 : stage === 'balancing' ? 94 : 100
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
+  function connectShoe() {
+    if (stage !== 'disconnected') return
+    timers.current.forEach(clearTimeout)
+    setStage('connecting')
+    timers.current = [setTimeout(() => {
+      timers.current = []
+      setStage('ready')
+    }, 2000)]
+  }
+
   function startAdjustment() {
-    if (isRunning) return
+    if (!isConnected || isRunning) return
     timers.current.forEach(clearTimeout)
     setStage('scanning')
     setResult({ length: .91, width: .91, support: 0 })
@@ -143,15 +154,15 @@ export function Simulator({ products }) {
     timers.current.forEach(clearTimeout)
     timers.current = []
     setFoot(defaultFoot)
-    setStage('ready')
+    setStage(isConnected ? 'ready' : 'disconnected')
     setResult({ length: 1, width: 1, support: 0 })
   }
 
   return <main className="simulator-page page-pad inner-page">
     <header className="fit-heading">
-      <div><p className="fit-eyebrow"><span /> SISTEMA KINETRA <i>·</i> CONEXÃO</p><h1>Conectado. Ajustado <em>ao seu pé.</em></h1><p>O tênis já está conectado e reconheceu o pé. Ajuste as medidas e acompanhe a malha abrir e comprimir para firmar o encaixe.</p></div>
+      <div><p className="fit-eyebrow"><span /> SISTEMA KINETRA <i>·</i> CONEXÃO</p><h1>Conecte e ajuste <em>ao seu pé.</em></h1><p>Inicie a conexão ilustrativa. Após dois segundos, o painel simula o reconhecimento do sensor e libera o ajuste do Adapt X 2050.</p></div>
       <div className="fit-heading-actions">
-        <div className="fit-session"><span className="fit-session-icon"><Activity size={18} aria-hidden="true" /></span><span><small>CONEXÃO</small><strong>Tênis conectado</strong></span></div>
+        <div className="fit-session"><span className="fit-session-icon"><Activity size={18} aria-hidden="true" /></span><span><small>CONEXÃO</small><strong>{isConnected ? 'Sensor reconhecido' : stage === 'connecting' ? 'Conectando…' : 'Desconectado'}</strong></span></div>
         <a className="fit-model-link" href="/tenis_visualizador.html" target="_blank" rel="noopener noreferrer"><Box size={16} aria-hidden="true" /><span>Ver modelo 3D</span><ArrowUpRight size={14} aria-hidden="true" /></a>
       </div>
     </header>
@@ -162,11 +173,11 @@ export function Simulator({ products }) {
         <div className="fit-scene-glow" aria-hidden="true" />
         <div className="fit-orbit fit-orbit-one" aria-hidden="true" />
         <div className="fit-orbit fit-orbit-two" aria-hidden="true" />
-        <div className="fit-scene-head"><span>ADAPT X 2050</span><span className={'fit-state-chip ' + (stage === 'complete' ? 'is-complete' : isRunning ? 'is-running' : 'is-connected')}><i />{stage === 'complete' ? 'AJUSTE CONFIRMADO' : isRunning ? statusText : 'TÊNIS CONECTADO'}</span></div>
+        <div className="fit-scene-head"><span>ADAPT X 2050</span><span className={'fit-state-chip ' + (stage === 'complete' ? 'is-complete' : isRunning ? 'is-running' : isConnected ? 'is-connected' : 'is-disconnected')}><i />{stage === 'complete' ? 'AJUSTE CONFIRMADO' : statusText}</span></div>
 
         <div className="fit-foot-map" aria-hidden="true">
           <svg viewBox="0 0 150 205"><path d="M67 12c-13-2-20 9-20 24 0 14 5 23-1 35-7 13-20 22-25 43-7 29 4 58 22 73 14 12 36 13 51 3 20-13 31-41 29-66-1-20-10-33-18-47-7-12-7-26-8-42-1-17-9-25-20-24-4 0-7 2-10 4z"/><circle cx="65" cy="48" r="5"/><circle cx="48" cy="88" r="4"/><circle cx="76" cy="94" r="4"/><circle cx="44" cy="126" r="5"/><circle cx="79" cy="135" r="5"/><circle cx="59" cy="161" r="4"/></svg>
-          <span>{stage === 'complete' ? 'ENCAIXE ESTÁVEL' : isRunning ? 'LEITURA DO PÉ' : 'PÉ DETECTADO'}</span>
+          <span>{stage === 'complete' ? 'ENCAIXE ESTÁVEL' : stage === 'disconnected' ? 'AGUARDANDO CONEXÃO' : stage === 'connecting' ? 'CONECTANDO SENSORES' : isRunning ? 'LEITURA DO PÉ' : 'SENSOR RECONHECEU O PÉ'}</span>
         </div>
 
         <div className="fit-sensors" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</div>
@@ -179,27 +190,30 @@ export function Simulator({ products }) {
 
         <div className="fit-callout fit-callout-length"><Ruler size={14} aria-hidden="true" /><span>COMPRIMENTO</span><strong>{formatMeasure(foot.length)} cm</strong></div>
         <div className="fit-callout fit-callout-width"><MoveDiagonal size={14} aria-hidden="true" /><span>LARGURA</span><strong>{formatMeasure(foot.width)} cm</strong></div>
-        <div className="fit-scene-foot"><span className="fit-live-dot" />{stage === 'complete' ? 'ENCAIXE ESTABILIZADO' : isRunning ? 'AJUSTE EM PROCESSO' : 'PÉ DETECTADO · SENSORES ATIVOS'}</div>
+        <div className="fit-scene-foot"><span className="fit-live-dot" />{stage === 'complete' ? 'ENCAIXE ESTABILIZADO' : stage === 'disconnected' ? 'AGUARDANDO CONEXÃO' : stage === 'connecting' ? 'ESTABELECENDO CONEXÃO' : isRunning ? 'AJUSTE EM PROCESSO' : 'SENSOR RECONHECEU O PÉ'}</div>
         <div className="fit-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       </section>
 
       <aside className="fit-panel">
-        <div className="fit-panel-top"><div><p className="fit-panel-kicker">PÉ RECONHECIDO</p><h2>Seu encaixe</h2></div><span className="fit-panel-icon"><Footprints size={20} aria-hidden="true" /></span></div>
-        <p className="fit-panel-intro">A conexão reconheceu o calce. Ao ajustar, as câmaras aliviam a pressão e comprimem a malha até firmar o tênis ao seu perfil.</p>
+        <div className="fit-panel-top"><div><p className="fit-panel-kicker">{isConnected ? 'SENSOR RECONHECIDO' : 'AGUARDANDO CONEXÃO'}</p><h2>Seu encaixe</h2></div><span className="fit-panel-icon"><Footprints size={20} aria-hidden="true" /></span></div>
+        <p className="fit-panel-intro">{stage === 'disconnected' ? 'Conecte o Adapt X para iniciar a demonstração. O painel simula o reconhecimento do sensor em dois segundos.' : stage === 'connecting' ? 'Estabelecendo a conexão ilustrativa com o Adapt X 2050…' : 'Sensor reconhecido. Ajuste as medidas e acompanhe a simulação da malha e das câmaras até firmar o encaixe.'}</p>
 
         <div className="fit-controls" aria-busy={isRunning}>
-          <label className="fit-control" htmlFor="fit-length"><span><span>Comprimento</span><output>{formatMeasure(foot.length)} <small>cm</small></output></span><input id="fit-length" type="range" min="24" max="30" step="0.1" value={foot.length} disabled={isRunning} onChange={event => updateFoot('length', event.target.value)} /><span className="fit-control-bounds"><small>24 cm</small><small>30 cm</small></span></label>
-          <label className="fit-control" htmlFor="fit-width"><span><span>Largura do antepé</span><output>{formatMeasure(foot.width)} <small>cm</small></output></span><input id="fit-width" type="range" min="8" max="12" step="0.1" value={foot.width} disabled={isRunning} onChange={event => updateFoot('width', event.target.value)} /><span className="fit-control-bounds"><small>8 cm</small><small>12 cm</small></span></label>
-          <label className="fit-control" htmlFor="fit-volume"><span><span>Volume do peito do pé</span><output>{foot.volume}<small>%</small></output></span><input id="fit-volume" type="range" min="50" max="90" step="1" value={foot.volume} disabled={isRunning} onChange={event => updateFoot('volume', event.target.value)} /><span className="fit-control-bounds"><small>Mais baixo</small><small>Mais alto</small></span></label>
+          <label className="fit-control" htmlFor="fit-length"><span><span>Comprimento</span><output>{formatMeasure(foot.length)} <small>cm</small></output></span><input id="fit-length" type="range" min="24" max="30" step="0.1" value={foot.length} disabled={!isConnected || isRunning} onChange={event => updateFoot('length', event.target.value)} /><span className="fit-control-bounds"><small>24 cm</small><small>30 cm</small></span></label>
+          <label className="fit-control" htmlFor="fit-width"><span><span>Largura do antepé</span><output>{formatMeasure(foot.width)} <small>cm</small></output></span><input id="fit-width" type="range" min="8" max="12" step="0.1" value={foot.width} disabled={!isConnected || isRunning} onChange={event => updateFoot('width', event.target.value)} /><span className="fit-control-bounds"><small>8 cm</small><small>12 cm</small></span></label>
+          <label className="fit-control" htmlFor="fit-volume"><span><span>Volume do peito do pé</span><output>{foot.volume}<small>%</small></output></span><input id="fit-volume" type="range" min="50" max="90" step="1" value={foot.volume} disabled={!isConnected || isRunning} onChange={event => updateFoot('volume', event.target.value)} /><span className="fit-control-bounds"><small>Mais baixo</small><small>Mais alto</small></span></label>
         </div>
 
         <div className="fit-result" data-visible={stage === 'complete'} aria-live="polite">
           <span className="fit-result-icon"><CheckCircle2 size={19} aria-hidden="true" /></span>
-          <span><strong>{stage === 'complete' ? 'Ajuste ao pé concluído' : 'Pronto para ajustar'}</strong><small>{stage === 'complete' ? `Malha estabilizada · apoio ${result.support}%` : 'Conexão ativa · pé reconhecido'}</small></span>
+          <span><strong>{stage === 'complete' ? 'Ajuste ao pé concluído' : isConnected ? 'Pronto para ajustar' : 'Conecte para começar'}</strong><small>{stage === 'complete' ? `Malha estabilizada · apoio ${result.support}%` : isConnected ? 'Conexão ilustrativa · sensor reconhecido' : 'Ajustes liberados após conexão'}</small></span>
         </div>
 
-        <button className="fit-start-button" type="button" onClick={startAdjustment} disabled={isRunning}>
-          {isRunning ? <><span className="fit-button-spinner" aria-hidden="true" /> Ajustando o Adapt X…</> : <><Sparkles size={18} aria-hidden="true" /> {stage === 'complete' ? 'Reajustar ao pé' : 'Ajustar ao pé'} <ArrowRight size={17} aria-hidden="true" /></>}
+        <button className="fit-start-button" type="button" onClick={isConnected ? startAdjustment : connectShoe} disabled={isRunning}>
+          {stage === 'connecting' || ['scanning', 'expanding', 'compressing', 'balancing'].includes(stage)
+            ? <><span className="fit-button-spinner" aria-hidden="true" /> {stage === 'connecting' ? 'Conectando…' : 'Ajustando o Adapt X…'}</>
+            : isConnected ? <><Sparkles size={18} aria-hidden="true" /> {stage === 'complete' ? 'Reajustar ao pé' : 'Ajustar ao pé'} <ArrowRight size={17} aria-hidden="true" /></>
+              : <><Activity size={18} aria-hidden="true" /> Conectar tênis <ArrowRight size={17} aria-hidden="true" /></>}
         </button>
         <button className="fit-reset" type="button" onClick={resetFoot} disabled={isRunning}><RotateCcw size={14} aria-hidden="true" /> Restaurar medidas</button>
       </aside>

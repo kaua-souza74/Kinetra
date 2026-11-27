@@ -144,7 +144,7 @@ function Site() {
   const authPage = Boolean(authMode)
   const adminRoute = pathname.startsWith('/admin')
   const adminPage = adminRoute && data.role === 'admin'
-  useWheelMomentum((pathname === '/' || pathname === '/como-funciona') && motion)
+  useWheelMomentum(motion)
   useScrollReveals(shell, pathname, motion)
   function toggleMotion() {
     writeLocal('motion', !motion)

@@ -118,11 +118,21 @@ create index if not exists idx_itens_pedido on public.pedido_itens(pedido_id);
 create index if not exists idx_enderecos_usuario on public.enderecos(usuario_id);
 
 -- Mantém as cores de cada item e a chave de idempotência da simulação.
-alter table public.carrinho_itens add column if not exists cor text not null default 'marinho' check (cor in ('marinho','areia'));
+alter table public.carrinho_itens add column if not exists cor text not null default 'gelo' check (cor in ('gelo','marinho','areia','grafite','laranja'));
 alter table public.carrinho_itens add column if not exists metodo text not null default 'entrega' check (metodo in ('entrega','retirada'));
 alter table public.carrinho_itens drop constraint if exists carrinho_itens_carrinho_id_estoque_id_key;
 create unique index if not exists kinetra_carrinho_variante on public.carrinho_itens(carrinho_id, estoque_id, cor);
-alter table public.pedido_itens add column if not exists cor text not null default 'marinho' check (cor in ('marinho','areia'));
+alter table public.pedido_itens add column if not exists cor text not null default 'gelo' check (cor in ('gelo','marinho','areia','grafite','laranja'));
+alter table public.carrinho_itens drop constraint if exists carrinho_itens_cor_check;
+alter table public.pedido_itens drop constraint if exists pedido_itens_cor_check;
+update public.carrinho_itens set cor = 'gelo' where cor is null or cor not in ('gelo','marinho','areia','grafite','laranja');
+update public.pedido_itens set cor = 'gelo' where cor is null or cor not in ('gelo','marinho','areia','grafite','laranja');
+alter table public.carrinho_itens alter column cor set default 'gelo';
+alter table public.pedido_itens alter column cor set default 'gelo';
+alter table public.carrinho_itens alter column cor set not null;
+alter table public.pedido_itens alter column cor set not null;
+alter table public.carrinho_itens add constraint carrinho_itens_cor_check check (cor in ('gelo','marinho','areia','grafite','laranja'));
+alter table public.pedido_itens add constraint pedido_itens_cor_check check (cor in ('gelo','marinho','areia','grafite','laranja'));
 alter table public.pedidos add column if not exists chave uuid;
 create unique index if not exists kinetra_pedido_chave on public.pedidos(usuario_id, chave);
 
@@ -185,9 +195,9 @@ create policy kinetra_perfil_update on public.perfis for update to authenticated
 drop policy if exists kinetra_produto_select on public.produtos;
 create policy kinetra_produto_select on public.produtos for select to anon, authenticated using (ativo or (select kinetra_privado.e_admin()));
 drop policy if exists kinetra_imagem_select on public.produto_imagens;
-create policy kinetra_imagem_select on public.produto_imagens for select to anon, authenticated using (exists(select 1 from public.produtos p where p.id = produto_id));
+create policy kinetra_imagem_select on public.produto_imagens for select to anon, authenticated using (exists(select 1 from public.produtos p where p.id = produto_id and (p.ativo or (select kinetra_privado.e_admin()))));
 drop policy if exists kinetra_estoque_select on public.estoque;
-create policy kinetra_estoque_select on public.estoque for select to anon, authenticated using (exists(select 1 from public.produtos p where p.id = produto_id));
+create policy kinetra_estoque_select on public.estoque for select to anon, authenticated using (exists(select 1 from public.produtos p where p.id = produto_id and (p.ativo or (select kinetra_privado.e_admin()))));
 do $$
 declare tabela text;
 begin
@@ -278,7 +288,7 @@ declare
 begin
   if usuario is null or pedido_chave is null or entrega is null or entrega not in ('entrega','retirada')
     or metodo_pagamento is null or metodo_pagamento not in ('pix','cartao')
-    or resultado is null or resultado not in ('aprovado','recusado') then raise exception 'Dados do pedido inválidos.'; end if;
+    or resultado is distinct from 'aprovado' then raise exception 'Pagamento simulado inválido.'; end if;
   select id into sacola from public.carrinhos where usuario_id = usuario for update;
   select id into pedido from public.pedidos where usuario_id = usuario and chave = pedido_chave;
   if pedido is not null then return pedido; end if;
@@ -288,7 +298,15 @@ begin
   else
     select to_jsonb(e) - 'id' - 'usuario_id' - 'criado_em' into endereco
     from public.enderecos e where e.id = endereco_id and e.usuario_id = usuario;
-    if endereco is null then raise exception 'Selecione um endereço válido.'; end if;
+    if endereco is null
+      or nullif(btrim(endereco->>'destinatario'),'') is null
+      or nullif(btrim(endereco->>'logradouro'),'') is null
+      or nullif(btrim(endereco->>'numero'),'') is null
+      or nullif(btrim(endereco->>'bairro'),'') is null
+      or nullif(btrim(endereco->>'cidade'),'') is null
+      or regexp_replace(coalesce(endereco->>'cep',''), '[^0-9]', '', 'g') !~ '^[0-9]{8}$'
+      or upper(btrim(coalesce(endereco->>'estado',''))) !~ '^[A-Z]{2}$'
+    then raise exception 'Complete os dados do endereço antes de continuar.'; end if;
   end if;
 
   perform e.id from public.estoque e
@@ -312,20 +330,15 @@ begin
   end loop;
 
   insert into public.pedidos(usuario_id, chave, status, status_pagamento, subtotal, frete, endereco_entrega)
-  values(usuario,pedido_chave,case when resultado = 'aprovado' then 'recebido' else 'cancelado' end,resultado,parcial,custo_frete,endereco)
+  values(usuario,pedido_chave,'recebido','aprovado',parcial,custo_frete,endereco)
   returning id into pedido;
   insert into public.pedido_itens(pedido_id,produto_id,nome_produto,numeracao,quantidade,preco_unitario,cor)
     select pedido,i.produto_id,i.nome,i.numeracao,i.quantidade,i.preco,i.cor
     from jsonb_to_recordset(dados_itens) as i(produto_id uuid,nome text,numeracao integer,quantidade integer,preco numeric,cor text);
   insert into public.pagamentos(pedido_id,provedor,metodo,status,valor)
-    values(pedido,'simulado',metodo_pagamento,resultado,parcial + custo_frete);
-  if resultado = 'aprovado' then
-    update public.estoque e set quantidade = e.quantidade - linha_estoque.quantidade, atualizado_em = now()
-    from (select i.estoque_id,sum(i.quantidade)::integer quantidade
-      from jsonb_to_recordset(dados_itens) as i(estoque_id uuid,quantidade integer) group by i.estoque_id) linha_estoque
-    where e.id = linha_estoque.estoque_id;
-    delete from public.carrinho_itens where carrinho_id = sacola;
-  end if;
+    values(pedido,'simulado',metodo_pagamento,'aprovado',parcial + custo_frete);
+  -- Simulação sem cobrança e sem baixa ou reserva de estoque.
+  delete from public.carrinho_itens where carrinho_id = sacola;
   return pedido;
 end;
 $$;
@@ -366,7 +379,7 @@ returns void language plpgsql set search_path = '' as $$
 begin
   if not kinetra_privado.e_admin() then raise exception 'Acesso restrito.'; end if;
   update public.pedidos set status = novo_status, status_pagamento = novo_pagamento, atualizado_em = now() where id = alvo;
-  update public.pagamentos set status = novo_pagamento, atualizado_em = now() where pedido_id = alvo and provedor = 'simulado';
+  update public.pagamentos set status = novo_pagamento, atualizado_em = now() where pedido_id = alvo and provedor in ('simulado','pendente');
 end;
 $$;
 

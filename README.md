@@ -43,12 +43,12 @@ npm run build
 
 ### Uso sem Supabase
 
-Sem as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`, cadastro, login, conta, sacola, pedidos, produtos e estoque usam o armazenamento deste navegador. Cada conta local mantém sua própria sacola; a senha é armazenada como hash. Esses dados não sincronizam entre navegadores ou dispositivos. O botão **ADM** abre o painel local para editar o catálogo e o estoque.
+Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`, o catálogo usa dados locais e a sacola de visitante fica neste navegador. Cadastro, login, conta, endereços, pedidos, checkout e administração exigem uma sessão Supabase. Não há acesso demonstrativo nem conta/senha de administrador padrão.
 
 ## Configuração do Supabase
 
 1. Copie `.env.example` para `.env` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` com a URL e a chave publicável **do mesmo projeto**. Reinicie o Vite após editar o arquivo.
-2. No **SQL Editor** de um projeto novo, execute [`supabase/instalar.sql`](supabase/instalar.sql). O script cria as tabelas, políticas de acesso e funções usadas pela loja.
+2. No **SQL Editor** de um projeto novo, execute [`supabase/instalar.sql`](supabase/instalar.sql). Para atualizar um banco já criado, execute [`supabase/alterar-seguranca.sql`](supabase/alterar-seguranca.sql). Se a constraint de cor da sacola estiver desatualizada, execute [`supabase/corrigir-cores-sacola.sql`](supabase/corrigir-cores-sacola.sql).
 3. Em **Authentication → URL Configuration**, configure os redirecionamentos de login e recuperação de senha para o endereço usado. No ambiente local padrão, inclua `http://localhost:5173/entrar` e `http://localhost:5173/redefinir-senha`. Se o Vite escolher outra porta, use a porta exibida no terminal.
 4. Crie e confirme uma conta de teste no Supabase Auth. Para torná-la administradora, copie o UUID em **Authentication → Users** e execute no SQL Editor:
 
@@ -65,4 +65,3 @@ Não existe e-mail ou senha padrão de administrador no Supabase real. A equipe 
 - [`SPEC-KINETRA.md`](SPEC-KINETRA.md): páginas, navegação e identidade visual.
 - [`CASOS-DE-TESTE-KINETRA.md`](CASOS-DE-TESTE-KINETRA.md): roteiros de testes.
 - [`CHECKLIST-ENTREGAS-KINETRA.md`](CHECKLIST-ENTREGAS-KINETRA.md): entregas do projeto.
-

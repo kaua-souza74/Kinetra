@@ -602,7 +602,7 @@
 .catalog-empty > span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: #f9e0d2; color: #b74722; }
 .catalog-empty h2 { margin: 5px 0 0; color: #25273d; font-size: 1.06rem; }
 .catalog-empty p { max-width: 380px; margin: 0 0 7px; color: #77737a; font-size: .76rem; }
-.catalog-editor { display: grid; gap: 15px; padding: clamp(16px, 2vw, 24px); border: 1px solid #e0d6c9; border-radius: 21px; background: linear-gradient(145deg, #fffaf2, #f3ece1); box-shadow: 0 15px 35px #20243f12; }
+.catalog-editor { display: grid; gap: 15px; padding: clamp(16px, 2vw, 24px); border: 1px solid #e0d6c9; border-radius: 21px; background: linear-gradient(145deg, #fffaf2, #f3ece1); box-shadow: 0 15px 35px #20243f12; scroll-margin-block: 24px; }
 .catalog-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .catalog-editor-heading .catalog-eyebrow { margin: 0 0 6px; }
 .catalog-editor-heading h2 { margin: 0; color: #25273e; font-size: 1.35rem; letter-spacing: -.04em; }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
-import { colors, date, displayProductName, isAdaptXProduct, money, payments, productImage, shipping, statuses } from './store'
+import { colors, date, displayProductName, isAdaptXProduct, money, payments, productImage, shipping, statuses, validateAddress } from './store'
 
 const fields = [
   ['destinatario', 'Destinatário'], ['cep', 'CEP'], ['logradouro', 'Logradouro'], ['numero', 'Número'],
@@ -79,22 +79,38 @@ export function Checkout({ data }) {
   async function submit(e) {
     e.preventDefault()
     const form = e.currentTarget
+    if (!form.reportValidity()) return
     const formData = new FormData(form)
-    setBusy(true)
     setError('')
-    requestId.current ??= crypto.randomUUID()
     try {
-      const address = method === 'retirada' ? null : selected === 'novo' ? await data.saveAddress(addressData(form)) : data.addresses.find(row => row.id === selected)
+      const paymentMethod = formData.get('pagamento')
+      if (!['pix', 'cartao'].includes(paymentMethod)) throw new Error('Selecione um método de pagamento.')
+      let address = null
+      if (method === 'entrega' && selected === 'novo') {
+        address = addressData(form)
+        validateAddress(address)
+      } else if (method === 'entrega') {
+        address = data.addresses.find(row => row.id === selected)
+        if (!address) throw new Error('Selecione ou cadastre um endereço para entrega.')
+        try { validateAddress(address) } catch {
+          setAddressId('novo')
+          throw new Error('O endereço salvo está incompleto. Complete os campos para continuar.')
+        }
+      }
+      if (items.some(item => !item.available)) throw new Error('Revise a quantidade: há item sem estoque suficiente.')
+      setBusy(true)
+      requestId.current ??= crypto.randomUUID()
+      if (method === 'entrega' && selected === 'novo') address = await data.saveAddress(address)
       if (address) setAddressId(address.id)
-      const id = await data.checkout(address, method, formData.get('pagamento'), formData.get('resultado'), requestId.current)
+      const id = await data.checkout(address, method, paymentMethod, requestId.current)
       navigate('/pedido/' + id)
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
   return <main className="page-pad inner-page"><p className="eyebrow">CHECKOUT</p><h1>FINALIZAR PEDIDO</h1><form className="checkout-grid" onSubmit={submit}>
     <div className="checkout-steps">
-      <section className="panel"><h2>1. Recebimento</h2><label>Como você quer receber?<select value={method} onChange={e => setMethod(e.target.value)}><option value="entrega">Entrega simulada</option><option value="retirada">Retirada simulada</option></select></label>
-      {method === 'entrega' && <><label>Endereço<select value={selected} onChange={e => setAddressId(e.target.value)}>{data.addresses.map(item => <option key={item.id} value={item.id}>{compactAddress(item)}</option>)}<option value="novo">Adicionar endereço</option></select></label>{selected === 'novo' && <AddressFields />}</>}</section>
-      <section className="panel"><h2>2. Pagamento</h2><p>Escolha um método e confira o resultado do pagamento simulado.</p><div className="field-grid"><label>Método<select name="pagamento"><option value="pix">Pix simulado</option><option value="cartao">Cartão simulado</option></select></label><label>Resultado<select name="resultado"><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option></select></label></div></section>
+      <section className="panel"><h2>1. Recebimento</h2><label>Como você quer receber?<select required value={method} onChange={e => setMethod(e.target.value)}><option value="entrega">Entrega simulada</option><option value="retirada">Retirada simulada</option></select></label>
+      {method === 'entrega' && <><label>Endereço<select required value={selected} onChange={e => setAddressId(e.target.value)}><option value="novo">Adicionar endereço</option>{data.addresses.map(item => <option key={item.id} value={item.id}>{compactAddress(item)}</option>)}</select></label>{selected === 'novo' && <AddressFields />}</>}</section>
+      <section className="panel"><h2>2. Pagamento</h2><p>Pagamento demonstrativo: a confirmação será simulada e não haverá cobrança real.</p><label>Método de pagamento<select name="pagamento" required defaultValue="pix"><option value="pix">Pix simulado</option><option value="cartao">Cartão simulado</option></select></label></section>
     </div><aside className="panel dark summary"><h2>3. Revise o pedido</h2>{items.map(item => <div className="line-product small" key={item.key}><img alt="" src={productImage(item.product, item.cor)} /><div><strong>{item.product?.nome ?? 'Produto indisponível'}</strong><small>{colors[item.cor]?.name} · BR {item.numeracao} · {item.quantidade} un.</small></div></div>)}<Totals subtotal={total} fee={shipping(method)} /><button className="button primary" disabled={busy || items.some(item => !item.available)}>{busy ? 'Processando…' : 'Simular pagamento'}</button>{error && <p role="alert" className="error">{error}</p>}</aside>
   </form></main>
 }
@@ -106,7 +122,7 @@ export function Order({ order, products, admin }) {
   const steps = Object.keys(statuses).slice(0, 4)
   const current = steps.indexOf(order.status)
   return <main className="page-pad inner-page"><p className="eyebrow">ACOMPANHAMENTO SIMULADO</p><h1>{order.status === 'cancelado' ? 'PEDIDO CANCELADO' : 'PEDIDO REGISTRADO'}</h1><p>Pedido #{String(order.id).slice(0, 8)} · {date(order.criado_em)}</p>
-    <section className="panel order-summary"><h2>{statuses[order.status]}</h2><p>Pagamento simulado · <strong>{payments[order.status_pagamento]}</strong></p>
+    <section className="panel order-summary"><h2>{statuses[order.status]}</h2><p>Pagamento simulado · <strong>{payments[order.status_pagamento]}</strong> (sem cobrança real)</p>
     {current >= 0 && <ol className="timeline">{steps.map((step, index) => <li key={step} data-complete={index <= current} aria-current={index === current ? 'step' : undefined}><i>{index <= current ? <Check size={16} /> : index + 1}</i>{statuses[step]}</li>)}</ol>}
     <h3>Recebimento</h3><p>{compactAddress(order.endereco_entrega ?? {})}</p>
     {order.pedido_itens?.map((item, i) => { const product = products.find(p => p.id === item.produto_id); return <div className="line-product small" key={item.id ?? i}><img alt="" src={productImage(product, item.cor)} /><div><strong>{isAdaptXProduct(product) ? displayProductName(product) : item.nome_produto}</strong><small>{colors[item.cor]?.name} · BR {item.numeracao} · {item.quantidade} un. · {money(item.preco_unitario)}</small></div></div> })}<Totals subtotal={Number(order.subtotal)} fee={Number(order.frete)} /></section>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Activity, ArrowRight, ArrowUpRight, BadgeCheck, Boxes, ChartNoAxesColumn, CircleDollarSign, Clock3, LayoutGrid, LogOut, Package, Pencil, Plus, Search, ShoppingBag, Tag, TriangleAlert, X } from 'lucide-react'
 import { date, displayProductName, money, payments, productImage, sizes, statuses } from './store'
@@ -103,6 +103,7 @@ function ProductEditor({ data, save }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('todos')
+  const editorRef = useRef(null)
   const item = data.catalog.find(product => product.id === selected)
   const activeCount = data.catalog.filter(product => product.ativo).length
   const totalUnits = data.catalog.reduce((sum, product) => sum + (product.estoque ?? []).reduce((stockSum, row) => stockSum + Number(row.quantidade || 0), 0), 0)
@@ -119,13 +120,24 @@ function ProductEditor({ data, save }) {
     setEditorOpen(true)
   }
 
+  useEffect(() => {
+    if (!editorOpen) return
+    const frame = requestAnimationFrame(() => {
+      const editor = editorRef.current
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      editor?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' })
+      editor?.querySelector('input[name="nome"]')?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editorOpen, selected])
+
   return <div className="admin-content products-admin">
     <section className="catalog-hero" aria-labelledby="catalog-title">
       <div className="catalog-hero-copy">
         <p className="catalog-eyebrow"><span /> CATÁLOGO <i>·</i> PRODUTOS E ESTOQUE</p>
         <h1 id="catalog-title">Produtos</h1>
         <p>Gerencie seus modelos, acompanhe as numerações e mantenha o catálogo atualizado.</p>
-        <button className="button catalog-create-button" onClick={() => openEditor()}><Plus size={18} /> Cadastrar produto</button>
+        <button type="button" className="button catalog-create-button" onClick={() => openEditor()}><Plus size={18} /> Cadastrar produto</button>
       </div>
       {featured && <div className="catalog-hero-shoe" aria-hidden="true"><span /><img src={productImage(featured, 'gelo')} alt="" /></div>}
       <div className="catalog-stats" aria-label="Resumo do catálogo">
@@ -146,7 +158,7 @@ function ProductEditor({ data, save }) {
     {filtered.length ? <div className="catalog-product-list">{filtered.map(product => <CatalogProduct key={product.id} product={product} onEdit={() => openEditor(product)} manageStock={data.manageStock} save={save} />)}</div> :
       <section className="catalog-empty"><span><Package size={23} /></span><h2>{data.catalog.length ? 'Nenhum produto encontrado' : 'Seu catálogo começa aqui'}</h2><p>{data.catalog.length ? 'Tente outro nome ou mude o filtro de status.' : 'Cadastre seu primeiro modelo para organizar preços e estoque.'}</p>{!data.catalog.length && <button className="button primary" onClick={() => openEditor()}><Plus size={17} /> Cadastrar produto</button>}</section>}
 
-    {editorOpen && <section className="catalog-editor" aria-labelledby="product-editor-title">
+    {editorOpen && <section ref={editorRef} tabIndex={-1} className="catalog-editor" aria-labelledby="product-editor-title">
       <div className="catalog-editor-heading"><div><p className="catalog-eyebrow">{item ? 'DETALHES DO CATÁLOGO' : 'NOVO NO CATÁLOGO'}</p><h2 id="product-editor-title">{item ? 'Editar produto' : 'Cadastrar produto'}</h2><p>Preencha as informações que aparecem na loja.</p></div><button type="button" className="catalog-close" aria-label="Fechar formulário" onClick={() => setEditorOpen(false)}><X size={19} /></button></div>
       <form className="catalog-product-form" key={selected} onSubmit={e => save(e, async f => {
         const value = JSON.parse(f.get('caracteristicas') || '{}')
@@ -204,7 +216,7 @@ function CatalogProduct({ product, onEdit, manageStock, save }) {
 }
 
 function OrderEditor({ data, save }) {
-  return <div className="admin-content"><h1>Pedidos</h1>{!data.orders.length && <p className="panel">Nenhum pedido registrado.</p>}{data.orders.map(order => <form className="panel row-form" key={order.id + order.status + order.status_pagamento} onSubmit={e => save(e, f => data.manageOrder(order.id, { status: f.get('status'), status_pagamento: f.get('pagamento') }))}><Link to={'/pedido/' + order.id}>#{String(order.id).slice(0,8)} · {money(order.total)}</Link><label>Pedido<select name="status" defaultValue={order.status}>{Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Pagamento simulado<select name="pagamento" defaultValue={order.status_pagamento}>{Object.entries(payments).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><button className="button primary">Atualizar</button></form>)}</div>
+  return <div className="admin-content"><h1>Pedidos</h1>{!data.orders.length && <p className="panel">Nenhum pedido registrado.</p>}{data.orders.map(order => <form className="panel row-form" key={order.id + order.status + order.status_pagamento} onSubmit={e => save(e, f => data.manageOrder(order.id, { status: f.get('status'), status_pagamento: f.get('pagamento') }))}><Link to={'/pedido/' + order.id}>#{String(order.id).slice(0,8)} · {money(order.total)}</Link><label>Status do pedido<select name="status" defaultValue={order.status}>{Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Pagamento (atualização manual)<select name="pagamento" defaultValue={order.status_pagamento}>{Object.entries(payments).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><button className="button primary">Atualizar</button></form>)}</div>
 }
 
 export function Admin({ data }) {

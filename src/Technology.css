@@ -261,6 +261,7 @@
 .fit-scene-head > span:first-child i { margin-left: 5px; color: #f08e6d; font-style: normal; }
 .fit-state-chip { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid #ffffff1e; border-radius: 99px; background: #ffffff0b; color: #e1dce1; font-size: .58rem; letter-spacing: .06em; }
 .fit-state-chip > i { width: 6px; height: 6px; flex-basis: 6px; box-shadow: none; background: #a7a2ae; }
+.fit-state-chip.is-disconnected > i { background: #837f8c; }
 .fit-state-chip.is-connected > i { background: #9dd5ae; box-shadow: 0 0 9px #9dd5ae98; }
 .fit-state-chip.is-running > i { background: #ff966e; box-shadow: 0 0 10px #ff744d; }
 .fit-state-chip.is-complete > i { background: #a9d7b2; box-shadow: 0 0 10px #a9d7b2a3; }
@@ -310,6 +311,7 @@
 .fit-sensors i:nth-child(6) { top: 72%; left: 15%; }
 .fit-sensors i:nth-child(7) { top: 81%; left: 6%; }
 .fit-sensors i:nth-child(8) { top: 27%; left: 24%; }
+.fit-scene[data-stage=disconnected] .fit-sensors i { border-color: #898594; background: #5e5b68; box-shadow: none; opacity: .42; }
 .fit-scene[data-stage=ready] .fit-sensors i { border-color: #e0ffeb; background: #91d6a8; box-shadow: 0 0 9px #91d6a8b5; }
 .fit-scan-beam { position: absolute; z-index: 5; top: 26%; right: 7%; left: 7%; height: 1px; opacity: 0; background: linear-gradient(90deg, transparent, #ffb187, #fff1dc, #ff7a52, transparent); box-shadow: 0 0 17px 2px #ff744d9c; pointer-events: none; }
 .fit-pressure-rings {
@@ -413,6 +415,7 @@
   [data-motion=on] .fit-scene[data-stage=scanning] .fit-scan-beam { opacity: 1; animation: fit-scan 1.05s ease-in-out infinite alternate; }
   [data-motion=on] .fit-scene[data-stage=scanning] .fit-sensors i,
   [data-motion=on] .fit-scene[data-stage=balancing] .fit-sensors i { animation: fit-sensor-pulse .75s ease-in-out infinite alternate; }
+  [data-motion=on] .fit-scene[data-stage=connecting] .fit-sensors i { animation: fit-sensor-pulse .55s ease-in-out infinite alternate; }
   [data-motion=on] .fit-scene[data-stage=expanding] .fit-pressure-rings i { animation: fit-expel-ring 1.18s ease-out infinite; }
   [data-motion=on] .fit-scene[data-stage=expanding] .fit-airflow i { animation: fit-air-jet .8s cubic-bezier(.18,.62,.3,1) infinite; }
   [data-motion=on] .fit-scene[data-stage=compressing] .fit-pressure-rings i { animation: fit-compress-ring .78s cubic-bezier(.4,0,.7,.2) infinite alternate; }

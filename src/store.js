@@ -63,3 +63,15 @@ export function readLocal(key, fallback) {
 export function writeLocal(key, value) {
   localStorage.setItem(`kinetra:${key}`, JSON.stringify(value))
 }
+
+export function validateAddress(address) {
+  const required = [
+    ['destinatario', 'o nome do destinatário'], ['logradouro', 'o logradouro'],
+    ['numero', 'o número'], ['bairro', 'o bairro'], ['cidade', 'a cidade'], ['estado', 'a UF'],
+  ]
+  for (const [key, label] of required) {
+    if (!String(address?.[key] ?? '').trim()) throw new Error(`Preencha ${label}.`)
+  }
+  if (!/^\d{5}-?\d{3}$/.test(String(address?.cep ?? '').trim())) throw new Error('Informe um CEP válido.')
+  if (!/^[a-z]{2}$/i.test(String(address?.estado ?? '').trim())) throw new Error('Informe uma UF com duas letras.')
+}

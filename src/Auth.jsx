@@ -29,45 +29,34 @@ function AuthForm({ mode, data, motion, toggleMotion }) {
   const next = location.state?.next ?? '/conta'
   const fromCart = next === '/finalizar'
 
-  if ((data.recovery || data.localRecovery) && mode !== 'redefinir') return <Navigate to="/redefinir-senha" replace />
-  if (data.user && mode === 'entrar') return <Navigate to={data.localAdminPreview ? '/admin' : next} replace />
+  if (data.recovery && mode !== 'redefinir') return <Navigate to="/redefinir-senha" replace />
+  if (data.user && mode === 'entrar') return <Navigate to={next} replace />
 
   async function submit(e) {
     e.preventDefault()
     setBusy(true)
     setMessage(null)
     try {
+      if (!supabase) throw new Error('Supabase não configurado. Confira VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.')
       const f = new FormData(e.currentTarget)
       const email = f.get('email')?.trim()
       const password = f.get('senha')
       if (mode === 'entrar') {
-        if (supabase) result(await supabase.auth.signInWithPassword({ email, password }))
-        else await data.loginLocal(email, password)
-        navigate(next, { replace: true })
+        result(await supabase.auth.signInWithPassword({ email, password }))
+        const destination = import.meta.env.DEV && e.nativeEvent.submitter?.value === 'admin' ? '/admin' : next
+        navigate(destination, { replace: true })
       } else if (mode === 'cadastro') {
         const account = { email, password, nome: f.get('nome').trim(), numeracao: Number(f.get('numeracao')) || null }
-        if (supabase) {
-          const response = result(await supabase.auth.signUp({ email, password, options: { emailRedirectTo: locationOrigin() + '/entrar', data: { nome: account.nome, numeracao: account.numeracao } } }))
-          if (response.session) navigate(next, { replace: true })
-          else setMessage({ text: 'Confira seu e-mail para confirmar o cadastro.' })
-        } else {
-          await data.registerLocal(account)
-          navigate(next, { replace: true })
-        }
+        const response = result(await supabase.auth.signUp({ email, password, options: { emailRedirectTo: locationOrigin() + '/entrar', data: { nome: account.nome, numeracao: account.numeracao } } }))
+        if (response.session) navigate(next, { replace: true })
+        else setMessage({ text: 'Confira seu e-mail para confirmar o cadastro.' })
       } else if (mode === 'recuperar') {
-        if (supabase) {
-          result(await supabase.auth.resetPasswordForEmail(email, { redirectTo: locationOrigin() + '/redefinir-senha' }))
-          setMessage({ text: 'Se houver uma conta para esse e-mail, você receberá um link de redefinição.' })
-        } else {
-          await data.beginLocalRecovery(email)
-          navigate('/redefinir-senha', { replace: true })
-        }
+        result(await supabase.auth.resetPasswordForEmail(email, { redirectTo: locationOrigin() + '/redefinir-senha' }))
+        setMessage({ text: 'Se houver uma conta para esse e-mail, você receberá um link de redefinição.' })
       } else {
         if (password !== f.get('confirmar')) throw new Error('As senhas precisam ser iguais.')
-        if (supabase) {
-          result(await supabase.auth.updateUser({ password }))
-          data.setRecovery(false)
-        } else await data.resetLocalPassword(password)
+        result(await supabase.auth.updateUser({ password }))
+        data.setRecovery(false)
         navigate('/conta', { replace: true })
       }
     } catch (error) {
@@ -76,12 +65,11 @@ function AuthForm({ mode, data, motion, toggleMotion }) {
     } finally { setBusy(false) }
   }
 
-  const canReset = mode !== 'redefinir' || (data.recovery && data.session) || data.localRecovery
+  const canReset = mode !== 'redefinir' || (data.recovery && data.session)
   return <section className="auth-panel" aria-labelledby="auth-title">
     {mode === 'entrar' && <Link className="auth-back" to={fromCart ? '/carrinho' : '/'}><ArrowLeft size={18} aria-hidden="true" /> {fromCart ? 'Voltar à sacola' : 'Voltar ao início'}</Link>}
     <Brand />
-    <h1 id="auth-title">{names[mode]}</h1><p>{mode === 'recuperar' && data.localMode ? 'Informe o e-mail cadastrado neste navegador para criar uma nova senha.' : subtitles[mode]}</p>
-    {data.localMode && ['entrar', 'cadastro', 'recuperar'].includes(mode) && <p className="local-auth-note">Conta e atividades salvas neste navegador.</p>}
+    <h1 id="auth-title">{names[mode]}</h1><p>{subtitles[mode]}</p>
     {message && <p className={message.error ? 'error' : 'notice'} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
     {canReset ? <form onSubmit={submit}>
       {mode === 'cadastro' && <label>Nome<input name="nome" autoComplete="name" required maxLength="120" /></label>}
@@ -90,8 +78,9 @@ function AuthForm({ mode, data, motion, toggleMotion }) {
       {mode === 'redefinir' && <label>Confirmar nova senha<input name="confirmar" required type={show ? 'text' : 'password'} minLength={8} autoComplete="new-password" /></label>}
       {mode === 'cadastro' && <><label>Numeração preferida <small>(opcional)</small><input name="numeracao" type="number" min="20" max="55" /></label><details className="auth-terms"><summary>Sobre sua conta</summary><p>Seu cadastro permite acessar sua conta, salvar endereços e acompanhar pedidos.</p></details><label className="check"><input type="checkbox" required /> Li e aceito os termos e a privacidade.</label></>}
       <button className="button primary" disabled={busy}>{busy ? 'Aguarde…' : { entrar: 'Entrar', cadastro: 'Criar conta', recuperar: 'Enviar instruções', redefinir: 'Salvar nova senha' }[mode]}</button>
+      {mode === 'entrar' && import.meta.env.DEV && <button className="button outline admin-auth-link" type="submit" value="admin" disabled={busy}>Entrar como administrador</button>}
     </form> : <p role="status" className="notice">{data.ready ? 'Inicie uma recuperação de senha neste navegador para continuar.' : 'Validando o link…'}</p>}
-    {mode === 'entrar' ? <>{data.localMode && <button className="button outline admin-auth-link" type="button" onClick={() => { data.startAdminPreview(); navigate('/admin', { replace: true }) }} aria-label="Abrir o painel administrativo">ADM</button>}<p>Ainda não tem conta? <Link to="/cadastro" state={{ next }}>Cadastre-se</Link></p></> : <Link to="/entrar" state={{ next }} className="back-link"><ArrowLeft size={16} /> Voltar para entrar</Link>}
+    {mode === 'entrar' ? <p>Ainda não tem conta? <Link to="/cadastro" state={{ next }}>Cadastre-se</Link></p> : <Link to="/entrar" state={{ next }} className="back-link"><ArrowLeft size={16} /> Voltar para entrar</Link>}
     <button className="motion-toggle" type="button" aria-pressed={motion} onClick={toggleMotion}>Animações: {motion ? 'ligadas' : 'desligadas'}</button>
     </section>
 }
