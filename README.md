@@ -1,10 +1,12 @@
 # Kinetra
 
-Projeto acadêmico **Fábrica do Futuro**, do SENAI. A Kinetra apresenta um conceito de tênis inteligente que se expande para calçar e se ajusta ao comprimento, à largura e ao volume do pé. O site é uma loja demonstrativa em **React + Vite**, com **Supabase** para autenticação e banco de dados. Pagamentos e acompanhamento de pedidos são simulados; não há cobrança real nem conexão com um tênis físico.
+## Calçados adaptativos
+
+A Kinetra apresenta o Adapt X 2050, um conceito de calçado esportivo com ajuste adaptativo. A experiência de loja foi desenvolvida em **React + Vite**, com **Supabase** para autenticação e dados. Pagamentos e acompanhamento de pedidos são simulados; não há cobrança real nem conexão com um tênis físico.
 
 ## Integrantes
 
-| Turma | Integrante | Responsabilidade |
+| Área | Integrante | Responsabilidade |
 | --- | --- | --- |
 | Dev A | Gabriel Bastos | Banco de dados e back-end |
 | Dev A | Giovanni Moretti | Banco de dados e back-end |
@@ -39,11 +41,9 @@ npm run lint
 npm run build
 ```
 
-### Demonstração sem banco
+### Uso sem Supabase
 
-O site oferece um modo local para apresentar os fluxos sem conta Supabase. Abra **Minha conta → Demonstração local** e escolha **Entrar como cliente** ou **Abrir admin**. Os dados desse modo ficam somente no navegador usado na demonstração.
-
-**Administrador de demonstração:** `admin@demo.local`. Não há senha; o acesso é pelo botão **Abrir admin**. Essa identidade não concede acesso administrativo ao banco real.
+Sem as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`, cadastro, login, conta, sacola, pedidos, produtos e estoque usam o armazenamento deste navegador. Cada conta local mantém sua própria sacola; a senha é armazenada como hash. Esses dados não sincronizam entre navegadores ou dispositivos. O botão **ADM** abre o painel local para editar o catálogo e o estoque.
 
 ## Configuração do Supabase
 

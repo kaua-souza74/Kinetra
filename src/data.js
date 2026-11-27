@@ -1,12 +1,44 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { demoProducts, readLocal, shipping, writeLocal } from './store'
+import { defaultProducts, readLocal, shipping, writeLocal } from './store'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 export const supabase = url && key ? createClient(url, key) : null
 const catalogFields = '*, estoque(*), produto_imagens(*)'
 const orderFields = '*, pedido_itens(*)'
+const localCartKey = accountId => 'cart-' + accountId
+
+function mergeCart(saved, incoming) {
+  const merged = [...saved]
+  for (const entry of incoming) {
+    const index = merged.findIndex(item => item.key === entry.key)
+    if (index < 0) merged.push(entry)
+    else merged[index] = { ...entry, quantidade: Math.max(merged[index].quantidade, entry.quantidade) }
+  }
+  return merged
+}
+
+function base64(bytes) {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+async function hashPassword(password, salt) {
+  if (!globalThis.crypto?.subtle) throw new Error('Este navegador não oferece suporte à proteção de senha necessária.')
+  const material = await globalThis.crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await globalThis.crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' }, material, 256)
+  return base64(new Uint8Array(bits))
+}
+
+function passwordSalt() {
+  return base64(globalThis.crypto.getRandomValues(new Uint8Array(16)))
+}
+
+function publicAccount(account) {
+  return Object.fromEntries(Object.entries(account).filter(([key]) => key !== 'passwordSalt' && key !== 'passwordHash'))
+}
 
 export function result(response) {
   if (response.error) throw new Error(response.error.message)
@@ -17,29 +49,43 @@ export function useStore() {
   const [session, setSession] = useState(null)
   const [ready, setReady] = useState(!supabase)
   const [profile, setProfile] = useState(null)
-  const [demo, setDemo] = useState(() => readLocal('demo', null))
+  const [localAccounts, setLocalAccounts] = useState(() => readLocal('accounts', []))
+  const [localSession, setLocalSession] = useState(() => readLocal('local-session', null))
+  const [localRecovery, setLocalRecovery] = useState(() => readLocal('local-recovery', null))
   const [recovery, setRecovery] = useState(() => new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery')
-  const [catalog, setCatalog] = useState(() => readLocal('products', demoProducts))
+  const [catalog, setCatalog] = useState(() => readLocal('products', defaultProducts))
   const [connected, setConnected] = useState(false)
-  const [cart, setCart] = useState(() => readLocal('cart', []))
+  const [cart, setCart] = useState(() => {
+    const savedSession = readLocal('local-session', null)
+    return savedSession?.accountId ? readLocal(localCartKey(savedSession.accountId), []) : readLocal('cart', [])
+  })
   const [orders, setOrders] = useState(() => readLocal('orders', []))
   const [addresses, setAddresses] = useState(() => readLocal('addresses', []))
   const [issue, setIssue] = useState('')
   const [loadedUser, setLoadedUser] = useState(null)
   const userId = session?.user?.id
-  const role = userId ? profile?.papel : demo?.papel
-  const user = userId ? { id: userId, nome: profile?.nome ?? session.user.user_metadata?.nome ?? 'Cliente', email: session.user.email, ...profile } : demo
+  const adminPreview = Boolean(!supabase && localSession?.adminPreview)
+  const localAccount = !supabase && localSession?.accountId ? localAccounts.find(account => account.id === localSession.accountId) : null
+  const role = userId ? profile?.papel : localAccount?.papel ?? (adminPreview ? 'admin' : null)
+  const user = userId ? { id: userId, nome: profile?.nome ?? session.user.user_metadata?.nome ?? 'Cliente', email: session.user.email, ...profile } :
+    localAccount ? publicAccount(localAccount) : adminPreview ? { id: 'admin-preview', nome: 'Admin' } : null
   const products = catalog.filter(item => item.ativo)
-  const visibleOrders = userId ? orders : orders.filter(order => order.usuario_id === demo?.id || role === 'admin')
-  const visibleAddresses = userId ? addresses : addresses.filter(address => address.usuario_id === demo?.id)
+  const visibleOrders = userId || adminPreview ? orders : localAccount ? orders.filter(order => order.usuario_id === localAccount.id) : []
+  const visibleAddresses = userId || adminPreview ? addresses : localAccount ? addresses.filter(address => address.usuario_id === localAccount.id) : []
+  const hasLocalRecovery = Boolean(localRecovery && localAccounts.some(account => account.id === localRecovery.accountId))
+
+  useEffect(() => {
+    localStorage.removeItem('kinetra:demo')
+    localStorage.removeItem('kinetra:demo-perfis')
+  }, [])
 
   useEffect(() => {
     if (!supabase) return
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next)
       if (next) {
-        setDemo(null)
-        writeLocal('demo', null)
+        setLocalSession(null)
+        writeLocal('local-session', null)
       }
       if (event === 'PASSWORD_RECOVERY') setRecovery(true)
       setReady(true)
@@ -48,13 +94,13 @@ export function useStore() {
   }, [])
 
   useEffect(() => {
-    if (!supabase || !ready || demo) return
+    if (!supabase || !ready || adminPreview || localAccount) return
     let active = true
     supabase.from('produtos').select(catalogFields).then(response => {
       if (!active) return
       if (response.error) {
         setConnected(false)
-        setCatalog(readLocal('products', demoProducts))
+        setCatalog(readLocal('products', defaultProducts))
       } else {
         setCatalog(response.data)
         setConnected(true)
@@ -62,7 +108,7 @@ export function useStore() {
       }
     })
     return () => { active = false }
-  }, [ready, userId, demo])
+  }, [ready, userId, adminPreview, localAccount])
 
   useEffect(() => {
     if (!userId) return
@@ -82,12 +128,7 @@ export function useStore() {
         setOrders(nextOrders)
         const guest = readLocal('guest-cart', [])
         if (guest.length) {
-          const merged = [...saved]
-          for (const entry of guest) {
-            const index = merged.findIndex(item => item.key === entry.key)
-            if (index < 0) merged.push(entry)
-            else merged[index] = { ...entry, quantidade: Math.max(merged[index].quantidade, entry.quantidade) }
-          }
+          const merged = mergeCart(saved, guest)
           result(await supabase.rpc('kinetra_salvar_sacola', { itens: merged }))
           if (!active) return
           writeLocal('guest-cart', [])
@@ -112,7 +153,7 @@ export function useStore() {
     if (userId) {
       if (loadedUser !== userId) throw new Error('Aguarde o carregamento da sacola.')
       result(await supabase.rpc('kinetra_salvar_sacola', { itens: next }))
-    } else writeLocal(!demo && connected ? 'guest-cart' : 'cart', next)
+    } else writeLocal(localAccount ? localCartKey(localAccount.id) : connected ? 'guest-cart' : 'cart', next)
     setCart(next)
   }
 
@@ -126,47 +167,111 @@ export function useStore() {
     await saveCart(next)
   }
 
-  function startDemo(papel) {
-    const saved = readLocal('demo-perfis', {})
-    const info = saved[papel] ?? { id: 'demo-' + papel, nome: papel === 'admin' ? 'Admin Kinetra' : 'Cliente Kinetra', email: papel + '@demo.local', papel }
-    setDemo(info)
-    writeLocal('demo', info)
-    setCart(readLocal('cart', []))
-    setAddresses(readLocal('addresses', []))
-    setOrders(readLocal('orders', []))
-    setCatalog(readLocal('products', demoProducts))
-    setConnected(false)
-    setIssue('')
-  }
-
   async function logout() {
     if (session) result(await supabase.auth.signOut())
-    setDemo(null)
-    writeLocal('demo', null)
+    const wasAdminPreview = adminPreview
+    setLocalSession(null)
+    writeLocal('local-session', null)
     setProfile(null)
     setLoadedUser(null)
     setOrders([])
     setAddresses([])
     setIssue('')
     setCart(readLocal('cart', []))
-    if (supabase) {
+    if (supabase && !wasAdminPreview) {
       const data = await supabase.from('produtos').select(catalogFields)
       if (!data.error) { setConnected(true); setCatalog(data.data); setCart(readLocal('guest-cart', [])) }
-    }
+    } else { setConnected(false); setCatalog(readLocal('products', defaultProducts)) }
+  }
+
+  function startLocalSession(account) {
+    const nextSession = { accountId: account.id }
+    setLocalSession(nextSession)
+    writeLocal('local-session', nextSession)
+    const guest = readLocal(supabase ? 'guest-cart' : 'cart', [])
+    const merged = mergeCart(readLocal(localCartKey(account.id), []), guest)
+    writeLocal(localCartKey(account.id), merged)
+    if (guest.length) writeLocal(supabase ? 'guest-cart' : 'cart', [])
+    setCart(merged)
+    setOrders(readLocal('orders', []))
+    setAddresses(readLocal('addresses', []))
+    setIssue('')
+  }
+
+  async function registerLocal(fields) {
+    if (supabase) throw new Error('A autenticação remota está configurada.')
+    const email = fields.email.trim().toLowerCase()
+    if (localAccounts.some(account => account.email.toLowerCase() === email)) throw new Error('Já existe uma conta com esse e-mail neste navegador.')
+    const salt = passwordSalt()
+    const account = { id: globalThis.crypto.randomUUID(), nome: fields.nome.trim(), email, papel: 'cliente', numeracao_preferida: Number(fields.numeracao) || null, passwordSalt: salt, passwordHash: await hashPassword(fields.password, Uint8Array.from(atob(salt), character => character.charCodeAt(0))) }
+    const next = [...localAccounts, account]
+    setLocalAccounts(next)
+    writeLocal('accounts', next)
+    startLocalSession(account)
+  }
+
+  async function loginLocal(email, password) {
+    if (supabase) throw new Error('A autenticação remota está configurada.')
+    const account = localAccounts.find(entry => entry.email.toLowerCase() === email.trim().toLowerCase())
+    if (!account) throw new Error('E-mail ou senha inválidos.')
+    const salt = Uint8Array.from(atob(account.passwordSalt), character => character.charCodeAt(0))
+    if (await hashPassword(password, salt) !== account.passwordHash) throw new Error('E-mail ou senha inválidos.')
+    startLocalSession(account)
+  }
+
+  async function beginLocalRecovery(email) {
+    if (supabase) throw new Error('A recuperação por e-mail está configurada no serviço de autenticação.')
+    const account = localAccounts.find(entry => entry.email.toLowerCase() === email.trim().toLowerCase())
+    if (!account) throw new Error('Não encontramos uma conta com esse e-mail neste navegador.')
+    const request = { accountId: account.id, requestedAt: Date.now() }
+    setLocalRecovery(request)
+    writeLocal('local-recovery', request)
+    setRecovery(true)
+  }
+
+  async function resetLocalPassword(password) {
+    if (supabase) throw new Error('A redefinição remota está configurada no serviço de autenticação.')
+    const account = localAccounts.find(entry => entry.id === localRecovery?.accountId)
+    if (!account) throw new Error('Peça uma redefinição de senha para continuar.')
+    const salt = passwordSalt()
+    const passwordHash = await hashPassword(password, Uint8Array.from(atob(salt), character => character.charCodeAt(0)))
+    const updated = { ...account, passwordSalt: salt, passwordHash }
+    const next = localAccounts.map(entry => entry.id === account.id ? updated : entry)
+    setLocalAccounts(next)
+    writeLocal('accounts', next)
+    setLocalRecovery(null)
+    writeLocal('local-recovery', null)
+    setRecovery(false)
+    startLocalSession(updated)
+  }
+
+  function startAdminPreview() {
+    if (supabase) return
+    const nextSession = { adminPreview: true }
+    setLocalSession(nextSession)
+    writeLocal('local-session', nextSession)
+    setCart(readLocal('cart', []))
+    setAddresses(readLocal('addresses', []))
+    setOrders(readLocal('orders', []))
+    setCatalog(readLocal('products', defaultProducts))
+    setConnected(false)
+    setIssue('')
   }
 
   async function saveProfile(fields) {
     if (userId) {
       setProfile(result(await supabase.from('perfis').update(fields).eq('id', userId).select().single()))
-    } else {
-      const next = { ...demo, ...fields }
-      setDemo(next)
-      writeLocal('demo', next)
-      writeLocal('demo-perfis', { ...readLocal('demo-perfis', {}), [demo.papel]: next })
+      return
     }
+    if (!localAccount) throw new Error('Entre na sua conta para atualizar o perfil.')
+    const updated = { ...localAccount, ...fields }
+    const next = localAccounts.map(account => account.id === localAccount.id ? updated : account)
+    setLocalAccounts(next)
+    writeLocal('accounts', next)
   }
 
   async function saveAddress(fields, id) {
+    if (!user) throw new Error('Entre na sua conta para salvar um endereço.')
     const address = { ...fields, usuario_id: user.id }
     if (userId) {
       const row = result(await (id ? supabase.from('enderecos').update(address).eq('id', id) : supabase.from('enderecos').insert(address)).select().single())
@@ -262,6 +367,6 @@ export function useStore() {
     }
   }
 
-  return { ready, accountReady: !userId || loadedUser === userId, session, recovery, setRecovery, user, role, demo, connected, issue, catalog, products, cart, orders: visibleOrders, addresses: visibleAddresses,
-    add, saveCart, logout, startDemo, saveProfile, saveAddress, checkout, manageProduct, removeProduct, manageStock, manageOrder }
+  return { ready, accountReady: !userId || loadedUser === userId, session, recovery, setRecovery, localMode: !supabase, localRecovery: hasLocalRecovery, localAdminPreview: adminPreview, user, role, connected, issue, catalog, products, cart, orders: visibleOrders, addresses: visibleAddresses,
+    add, saveCart, logout, registerLocal, loginLocal, beginLocalRecovery, resetLocalPassword, startAdminPreview, saveProfile, saveAddress, checkout, manageProduct, removeProduct, manageStock, manageOrder }
 }

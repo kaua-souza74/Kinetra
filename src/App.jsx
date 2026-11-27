@@ -85,13 +85,13 @@ function Footer({ data, home, motion, toggleMotion }) {
     {home && <section className="footer-campaign" data-reveal aria-labelledby="footer-campaign-title">
       <img src={assets.campanha} alt="" loading="lazy" />
       <div>
-        <p className="eyebrow">KINETRA FORMA</p>
-        <h2 id="footer-campaign-title">Encontre a sua forma.</h2>
+        <p className="eyebrow">KINETRA ADAPT X 2050</p>
+        <h2 id="footer-campaign-title">Encontre o seu ajuste.</h2>
         <Link className="button primary" to="/colecao">Explore a coleção <ArrowUpRight size={17} aria-hidden="true" /></Link>
       </div>
     </section>}
     <div className="footer-main">
-      <div className="footer-intro"><Brand cream /><p>Tênis adaptativo desenvolvido como projeto acadêmico do SENAI.</p></div>
+      <div className="footer-intro"><Brand cream /><p>Tecnologia, conforto e movimento em uma nova forma de calçar.</p></div>
       <nav className="footer-links" aria-label="Explore a Kinetra">
         <h2>Explore</h2>
         <Link to="/loja">Loja</Link><Link to="/colecao">Coleção</Link><Link to="/como-funciona">Como funciona</Link><Link to="/simulador">Conexão</Link>
@@ -103,7 +103,7 @@ function Footer({ data, home, motion, toggleMotion }) {
       </nav>
     </div>
     <div className="footer-wordmark" aria-hidden="true">KINETRA<span>.</span></div>
-    <div className="footer-base"><span>© {new Date().getFullYear()} Kinetra</span><button className="motion-toggle" type="button" aria-pressed={motion} onClick={toggleMotion}>Animações: {motion ? 'ligadas' : 'desligadas'}</button><span>Fábrica do Futuro · SENAI</span></div>
+    <div className="footer-base"><span>© {new Date().getFullYear()} Kinetra</span><button className="motion-toggle" type="button" aria-pressed={motion} onClick={toggleMotion}>Animações: {motion ? 'ligadas' : 'desligadas'}</button><span>Calçados adaptativos para acompanhar você.</span></div>
   </footer>
 }
 

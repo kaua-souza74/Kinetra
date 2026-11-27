@@ -229,6 +229,16 @@
   pointer-events: none;
 }
 .auth-panel .brand-logo { width: min(163px, 100%); }
+.auth-card .campaign div { text-shadow: 0 2px 16px #11131c80; }
+.auth-panel .admin-auth-link { display: flex; width: 100%; margin-top: 12px; }
+.auth-panel .local-auth-note { padding: 8px 10px; border: 1px solid #e1d4c4; border-radius: 10px; background: #f4eadb; color: #66584e; font-size: .7rem; }
+.footer-campaign > img {
+  inset: 0 0 0 auto;
+  width: 73%;
+  object-fit: contain;
+  object-position: right center;
+  filter: drop-shadow(0 18px 15px #080b1a50);
+}
 .site-header .icon-button:hover { background: #ffffff21; }
 .site-header .bag-link { border-color: #ffffff38; }
 .site-header .search-panel { color: var(--ink); background: #fff8ec; }
@@ -281,6 +291,10 @@
 .auth-card { background: #faf0df; }
 .motion-toggle { border: 0; background: transparent; color: inherit; text-decoration: underline; padding: 3px; font-size: .76rem; }
 .auth-panel .motion-toggle { display: block; margin-top: 16px; color: #793519; }
+
+.adjustment.adapt-x-adjustment { background: #202743; }
+.adapt-x-adjustment .adjustment-art { min-height: clamp(220px, 23vw, 330px); }
+.adapt-x-adjustment .adjustment-art img { width: 88%; max-height: clamp(190px, 22vw, 290px); height: auto; object-fit: contain; }
 
 [data-motion=on] .nav-indicator {
   transition: transform .34s cubic-bezier(.22,.7,.25,1), width .34s cubic-bezier(.22,.7,.25,1), height .34s ease, opacity .2s ease;

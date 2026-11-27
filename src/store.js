@@ -1,19 +1,26 @@
 export const assets = {
-  marinho: '/kinetra-forma/forma-marinho.png',
-  areia: '/kinetra-forma/forma-areia.png',
-  ajuste: '/kinetra-forma/forma-ajuste.png',
-  campanha: '/kinetra-forma/forma-campanha.png',
+  gelo: '/kinetra-adapt-x-2050/adapt-gelo.png',
+  marinho: '/kinetra-adapt-x-2050/adapt-marinho.png',
+  areia: '/kinetra-adapt-x-2050/adapt-areia.png',
+  grafite: '/kinetra-adapt-x-2050/adapt-grafite.png',
+  laranja: '/kinetra-adapt-x-2050/adapt-laranja.png',
+  ajuste: '/kinetra-adapt-x-2050/adapt-gelo.png',
+  campanha: '/kinetra-adapt-x-2050/adapt-gelo.png',
+  loginCampaign: '/kinetra-forma/forma-campanha.png',
 }
 
 export const colors = {
-  marinho: { name: 'Marinho', hex: '#1E223D' },
-  areia: { name: 'Areia', hex: '#E6D5B7' },
+  gelo: { name: 'Gelo / Azul', hex: '#e9e6df' },
+  marinho: { name: 'Marinho / Laranja', hex: '#1E223D' },
+  areia: { name: 'Areia / Laranja', hex: '#E6D5B7' },
+  grafite: { name: 'Grafite / Azul', hex: '#484b50' },
+  laranja: { name: 'Laranja / Azul', hex: '#f4511e' },
 }
 
 export const sizes = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44]
-export const demoProducts = [{
+export const defaultProducts = [{
   id: 'forma',
-  nome: 'Kinetra Forma',
+  nome: 'Kinetra Adapt X 2050',
   slug: 'kinetra-forma',
   descricao: 'O tênis sem cadarços que se expande para calçar e se contrai para acompanhar o comprimento, a largura e o volume do seu pé.',
   preco: 599.90,
@@ -35,8 +42,18 @@ export const shipping = method => method === 'entrega' ? 24.90 : 0
 
 export function productImage(product, color) {
   const images = product?.produto_imagens?.toSorted((a, b) => a.ordem - b.ordem) ?? []
-  if (product?.slug !== 'kinetra-forma' && images.length) return images[0].url
-  return images[color === 'areia' ? 1 : 0]?.url || assets[color] || assets.marinho
+  if (isAdaptXProduct(product)) return assets[color] || assets.gelo
+  if (images.length) return images[0].url
+  return assets[color] || assets.gelo
+}
+
+export function isAdaptXProduct(product) {
+  return ['kinetra-forma', 'kinetra-adapt-x-2050'].includes(product?.slug) ||
+    /kinetra\s+(forma|adapt\s*x)/i.test(product?.nome ?? '')
+}
+
+export function displayProductName(product) {
+  return isAdaptXProduct(product) ? 'Kinetra Adapt X 2050' : product?.nome ?? 'Kinetra Adapt X 2050'
 }
 
 export function readLocal(key, fallback) {

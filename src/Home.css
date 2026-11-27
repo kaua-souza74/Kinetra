@@ -137,7 +137,7 @@
   margin: auto;
   width: auto;
   max-width: 88%;
-  height: 76%;
+  height: 88%;
   object-fit: contain;
   transform: translate(-1%, -1%) rotate(-12deg);
   filter: drop-shadow(0 26px 17px #221d3557);
@@ -145,6 +145,7 @@
 
 .hero-note {
   position: absolute;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -186,7 +187,8 @@
 .hero-variants { display: grid; gap: 4px; margin-top: 2px; }
 .home .hero-variants p:not(.eyebrow) { font-size: .78rem; font-weight: 650; }
 .home .hero-product .miniatures { margin: 0; }
-.home .hero-product .miniatures button { width: clamp(47px, 4.9vw, 66px); height: 44px; background: #eee8de; }
+.home .hero-product .miniatures { max-width: 270px; flex-wrap: wrap; gap: 6px; }
+.home .hero-product .miniatures button { width: clamp(36px, 3.8vw, 48px); height: 40px; padding: 3px; background: #eee8de; }
 .home .hero-product .miniatures button[aria-pressed=true] { background: #fcefe7; }
 
 .home .feature-strip {
@@ -205,8 +207,11 @@
 .collection-grid.product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .collection-grid .card-art { height: auto; aspect-ratio: 2.08; }
 .collection-grid .card-art img { height: auto; max-height: 93%; width: 78%; }
-.collection-grid [data-color="marinho"] .card-art { background: radial-gradient(ellipse, #f3f1ec, #e2dfd5); }
+.collection-grid [data-color="gelo"] .card-art { background: radial-gradient(ellipse, #fffefa, #e6e4df); }
+.collection-grid [data-color="marinho"] .card-art { background: radial-gradient(ellipse, #f3f1ec, #d8d9df); }
 .collection-grid [data-color="areia"] .card-art { background: radial-gradient(ellipse, #fff8e9, #e8d9bd); }
+.collection-grid [data-color="grafite"] .card-art { background: radial-gradient(ellipse, #f4f3f0, #d2d2cf); }
+.collection-grid [data-color="laranja"] .card-art { background: radial-gradient(ellipse, #fff5ec, #efd4c3); }
 .collection-grid .card-meta small { font-weight: 600; }
 .home .home-adjust { scroll-margin-top: 24px; }
 
@@ -281,10 +286,73 @@
   .hero-product h2, .hero-product .hero-description { grid-column: 1 / -1; }
   .hero-product .button { grid-column: 1; grid-row: 4; }
   .hero-variants { grid-column: 2; grid-row: 3 / 5; }
+  .home .hero-product .miniatures { max-width: 160px; gap: 4px; }
+  .home .hero-product .miniatures button { width: 34px; height: 36px; }
   .hero-scroll { position: static; grid-area: 4 / 1; justify-self: start; }
   .home .feature-strip > div { gap: 8px; }
   .home .feature-strip strong { font-size: .83rem; }
 }
+
+.adapt-x-adjustment {
+  border: 1px solid #20274322;
+  background: #202743;
+  color: #fbf7f0;
+}
+.adjustment-art {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: clamp(220px, 23vw, 330px);
+  overflow: hidden;
+  background: radial-gradient(ellipse at 51% 53%, #506086 0, #252c49 43%, #1d223d 78%);
+}
+.adjustment-art::before,
+.adjustment-art::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 54%;
+  aspect-ratio: 1.6;
+  border: 1px solid #dce8ff33;
+  border-radius: 50%;
+  transform: rotate(-13deg);
+}
+.adjustment-art::after { width: 70%; border-color: #ff895e33; }
+.adjustment-art > span {
+  position: absolute;
+  z-index: 2;
+  inset: 14px auto auto 16px;
+  color: #d8dced;
+  font-size: .63rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+.adjustment-art > span i { color: #ff895e; font-style: normal; }
+.adapt-x-adjustment .adjustment-art img {
+  width: 88%;
+  max-height: clamp(190px, 22vw, 290px);
+  object-fit: contain;
+  filter: drop-shadow(0 18px 18px #080b1a88);
+}
+.adjustment-pulse {
+  position: absolute;
+  z-index: -1;
+  width: 44%;
+  aspect-ratio: 2.5;
+  border: 1px solid #74c9ff65;
+  border-radius: 50%;
+  box-shadow: 0 0 30px #4cb7ff20, inset 0 0 22px #4cb7ff18;
+  transform: translate(3%, 15%) rotate(-8deg);
+}
+.adapt-x-adjustment figcaption {
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid #ffffff20;
+  color: #f8eee5;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.adapt-x-adjustment figcaption span + span { color: #ffad8e; }
 
 @media (max-width: 390px) {
   .collection-grid.product-grid, .technology-steps { grid-template-columns: 1fr; }

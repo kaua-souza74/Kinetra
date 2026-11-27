@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
-import { colors, date, money, payments, productImage, shipping, statuses } from './store'
+import { colors, date, displayProductName, isAdaptXProduct, money, payments, productImage, shipping, statuses } from './store'
 
 const fields = [
   ['destinatario', 'Destinatário'], ['cep', 'CEP'], ['logradouro', 'Logradouro'], ['numero', 'Número'],
@@ -94,7 +94,7 @@ export function Checkout({ data }) {
     <div className="checkout-steps">
       <section className="panel"><h2>1. Recebimento</h2><label>Como você quer receber?<select value={method} onChange={e => setMethod(e.target.value)}><option value="entrega">Entrega simulada</option><option value="retirada">Retirada simulada</option></select></label>
       {method === 'entrega' && <><label>Endereço<select value={selected} onChange={e => setAddressId(e.target.value)}>{data.addresses.map(item => <option key={item.id} value={item.id}>{compactAddress(item)}</option>)}<option value="novo">Adicionar endereço</option></select></label>{selected === 'novo' && <AddressFields />}</>}</section>
-      <section className="panel"><h2>2. Pagamento demonstrativo</h2><p>Escolha um método e o resultado para a apresentação.</p><div className="field-grid"><label>Método<select name="pagamento"><option value="pix">Pix simulado</option><option value="cartao">Cartão simulado</option></select></label><label>Resultado<select name="resultado"><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option></select></label></div></section>
+      <section className="panel"><h2>2. Pagamento</h2><p>Escolha um método e confira o resultado do pagamento simulado.</p><div className="field-grid"><label>Método<select name="pagamento"><option value="pix">Pix simulado</option><option value="cartao">Cartão simulado</option></select></label><label>Resultado<select name="resultado"><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option></select></label></div></section>
     </div><aside className="panel dark summary"><h2>3. Revise o pedido</h2>{items.map(item => <div className="line-product small" key={item.key}><img alt="" src={productImage(item.product, item.cor)} /><div><strong>{item.product?.nome ?? 'Produto indisponível'}</strong><small>{colors[item.cor]?.name} · BR {item.numeracao} · {item.quantidade} un.</small></div></div>)}<Totals subtotal={total} fee={shipping(method)} /><button className="button primary" disabled={busy || items.some(item => !item.available)}>{busy ? 'Processando…' : 'Simular pagamento'}</button>{error && <p role="alert" className="error">{error}</p>}</aside>
   </form></main>
 }
@@ -109,7 +109,7 @@ export function Order({ order, products, admin }) {
     <section className="panel order-summary"><h2>{statuses[order.status]}</h2><p>Pagamento simulado · <strong>{payments[order.status_pagamento]}</strong></p>
     {current >= 0 && <ol className="timeline">{steps.map((step, index) => <li key={step} data-complete={index <= current} aria-current={index === current ? 'step' : undefined}><i>{index <= current ? <Check size={16} /> : index + 1}</i>{statuses[step]}</li>)}</ol>}
     <h3>Recebimento</h3><p>{compactAddress(order.endereco_entrega ?? {})}</p>
-    {order.pedido_itens?.map((item, i) => <div className="line-product small" key={item.id ?? i}><img alt="" src={productImage(products.find(p => p.id === item.produto_id), item.cor)} /><div><strong>{item.nome_produto}</strong><small>{colors[item.cor]?.name} · BR {item.numeracao} · {item.quantidade} un. · {money(item.preco_unitario)}</small></div></div>)}<Totals subtotal={Number(order.subtotal)} fee={Number(order.frete)} /></section>
+    {order.pedido_itens?.map((item, i) => { const product = products.find(p => p.id === item.produto_id); return <div className="line-product small" key={item.id ?? i}><img alt="" src={productImage(product, item.cor)} /><div><strong>{isAdaptXProduct(product) ? displayProductName(product) : item.nome_produto}</strong><small>{colors[item.cor]?.name} · BR {item.numeracao} · {item.quantidade} un. · {money(item.preco_unitario)}</small></div></div> })}<Totals subtotal={Number(order.subtotal)} fee={Number(order.frete)} /></section>
     <Link className="back-link" to={back}><ArrowLeft size={16} /> {backLabel}</Link>
   </main>
 }

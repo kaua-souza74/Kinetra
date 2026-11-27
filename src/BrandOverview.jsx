@@ -30,8 +30,8 @@ export function BrandOverview() {
         <h2 id="about-kinetra">Calçados pensados <em>para o pé.</em></h2>
       </div>
       <div className="about-copy">
-        <p>A Kinetra nasceu no projeto Fábrica do Futuro do SENAI para explorar como a tecnologia pode melhorar o conforto e o desempenho dos calçados esportivos.</p>
-        <p>O <strong>Kinetra Forma</strong>, apresentado na loja, ilustra a ideia de um tênis que se molda ao pé. O <strong>Adapt X 2100</strong> explora como sensores, pequenos motores e materiais flexíveis poderiam levar esse ajuste mais longe.</p>
+        <p>A Kinetra explora novas formas de unir tecnologia, conforto e movimento em calçados esportivos.</p>
+        <p>O <strong>Kinetra Adapt X 2050</strong>, apresentado na loja, ilustra a ideia de um tênis que se molda ao pé. O <strong>Adapt X 2100</strong> explora como sensores, pequenos motores e materiais flexíveis poderiam levar esse ajuste mais longe.</p>
         <Link to="/como-funciona" className="button outline">Conheça a proposta</Link>
       </div>
     </section>

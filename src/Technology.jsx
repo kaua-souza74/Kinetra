@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Activity, ArrowDown, ArrowRight, ArrowUpRight, Box, Check, CheckCircle2, Footprints, Layers3, MoveDiagonal, Plus, RotateCcw, Ruler, ScanLine, ShieldCheck, Sparkles, Wind, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { productImage } from './store'
+import { displayProductName, isAdaptXProduct, productImage } from './store'
 import { Adjustment } from './Storefront'
 import './Technology.css'
 
@@ -29,13 +29,13 @@ const questions = [
 
 export function Technology({ products, motion }) {
   const steps = useRef(null)
-  const forma = products.find(item => item.slug === 'kinetra-forma')
+  const forma = products.find(isAdaptXProduct)
   return <main className="technology-page">
     <section className="tech-hero page-pad" aria-labelledby="tech-title">
       <div className="tech-hero-copy">
         <p className="eyebrow">TECNOLOGIA KINETRA</p>
         <h1 id="tech-title">A forma segue <em>o seu pé.</em></h1>
-        <p>Do espaço para calçar à firmeza para se movimentar. Entenda como o Forma foi pensado para mudar de dimensão e conheça o painel de conexão.</p>
+        <p>Do espaço para calçar à firmeza para se movimentar. Entenda como o Adapt X 2050 foi pensado para mudar de dimensão e conheça o painel de conexão.</p>
         <div className="tech-actions">
           <Link className="button primary" to="/simulador">Abrir conexão</Link>
           <button className="button outline" type="button" onClick={() => {
@@ -46,8 +46,8 @@ export function Technology({ products, motion }) {
       </div>
       <div className="tech-hero-art" aria-hidden="true">
         <div className="tech-orbits" />
-        <span>FORMA</span>
-        <img src={productImage(forma, 'marinho')} alt="" width="1536" height="1024" fetchPriority="high" />
+        <span>ADAPT X 2050</span>
+        <img src={productImage(forma, 'gelo')} alt="" width="1536" height="1024" fetchPriority="high" />
       </div>
     </section>
 
@@ -102,7 +102,7 @@ export function Simulator({ products }) {
   const [stage, setStage] = useState('ready')
   const [result, setResult] = useState({ length: 1, width: 1, support: 0 })
   const timers = useRef([])
-  const forma = products.find(item => item.slug === 'kinetra-forma') ?? products[0]
+  const forma = products.find(isAdaptXProduct) ?? products[0]
   const isRunning = ['scanning', 'expanding', 'compressing', 'balancing'].includes(stage)
   const stageIndex = ({ ready: 1, scanning: 2, expanding: 3, compressing: 3, balancing: 4, complete: 4 })[stage]
   const statusText = ({ ready: 'Tênis conectado · pé reconhecido', scanning: 'Lendo contorno e pressão', expanding: 'Expelindo ar', compressing: 'Comprimindo a malha', balancing: 'Firmando o encaixe ao pé', complete: 'Ajuste concluído' })[stage]
@@ -162,7 +162,7 @@ export function Simulator({ products }) {
         <div className="fit-scene-glow" aria-hidden="true" />
         <div className="fit-orbit fit-orbit-one" aria-hidden="true" />
         <div className="fit-orbit fit-orbit-two" aria-hidden="true" />
-        <div className="fit-scene-head"><span>FORMA <i>01</i></span><span className={'fit-state-chip ' + (stage === 'complete' ? 'is-complete' : isRunning ? 'is-running' : 'is-connected')}><i />{stage === 'complete' ? 'AJUSTE CONFIRMADO' : isRunning ? statusText : 'TÊNIS CONECTADO'}</span></div>
+        <div className="fit-scene-head"><span>ADAPT X 2050</span><span className={'fit-state-chip ' + (stage === 'complete' ? 'is-complete' : isRunning ? 'is-running' : 'is-connected')}><i />{stage === 'complete' ? 'AJUSTE CONFIRMADO' : isRunning ? statusText : 'TÊNIS CONECTADO'}</span></div>
 
         <div className="fit-foot-map" aria-hidden="true">
           <svg viewBox="0 0 150 205"><path d="M67 12c-13-2-20 9-20 24 0 14 5 23-1 35-7 13-20 22-25 43-7 29 4 58 22 73 14 12 36 13 51 3 20-13 31-41 29-66-1-20-10-33-18-47-7-12-7-26-8-42-1-17-9-25-20-24-4 0-7 2-10 4z"/><circle cx="65" cy="48" r="5"/><circle cx="48" cy="88" r="4"/><circle cx="76" cy="94" r="4"/><circle cx="44" cy="126" r="5"/><circle cx="79" cy="135" r="5"/><circle cx="59" cy="161" r="4"/></svg>
@@ -174,7 +174,7 @@ export function Simulator({ products }) {
         <div className="fit-pressure-rings" aria-hidden="true"><i /><i /><i /></div>
         <div className="fit-airflow" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
         <div className="fit-shoe-wrap" style={{ '--shoe-x': shoeLength, '--shoe-y': shoeWidth }}>
-          {forma && <img className="fit-shoe" src={productImage(forma, 'marinho')} alt="Tênis Kinetra Forma se ajustando ao perfil do pé" width="1536" height="1024" />}
+          {forma && <img className="fit-shoe" src={productImage(forma, 'gelo')} alt={displayProductName(forma) + ' se ajustando ao perfil do pé'} width="1536" height="1024" />}
         </div>
 
         <div className="fit-callout fit-callout-length"><Ruler size={14} aria-hidden="true" /><span>COMPRIMENTO</span><strong>{formatMeasure(foot.length)} cm</strong></div>
@@ -199,7 +199,7 @@ export function Simulator({ products }) {
         </div>
 
         <button className="fit-start-button" type="button" onClick={startAdjustment} disabled={isRunning}>
-          {isRunning ? <><span className="fit-button-spinner" aria-hidden="true" /> Ajustando o Forma…</> : <><Sparkles size={18} aria-hidden="true" /> {stage === 'complete' ? 'Reajustar ao pé' : 'Ajustar ao pé'} <ArrowRight size={17} aria-hidden="true" /></>}
+          {isRunning ? <><span className="fit-button-spinner" aria-hidden="true" /> Ajustando o Adapt X…</> : <><Sparkles size={18} aria-hidden="true" /> {stage === 'complete' ? 'Reajustar ao pé' : 'Ajustar ao pé'} <ArrowRight size={17} aria-hidden="true" /></>}
         </button>
         <button className="fit-reset" type="button" onClick={resetFoot} disabled={isRunning}><RotateCcw size={14} aria-hidden="true" /> Restaurar medidas</button>
       </aside>

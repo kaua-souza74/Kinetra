@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Activity, ArrowRight, ArrowUpRight, BadgeCheck, Boxes, ChartNoAxesColumn, CircleDollarSign, Clock3, LayoutGrid, LogOut, Package, ShoppingBag, TriangleAlert } from 'lucide-react'
-import { date, money, payments, productImage, statuses } from './store'
+import { Activity, ArrowRight, ArrowUpRight, BadgeCheck, Boxes, ChartNoAxesColumn, CircleDollarSign, Clock3, LayoutGrid, LogOut, Package, Pencil, Plus, Search, ShoppingBag, Tag, TriangleAlert, X } from 'lucide-react'
+import { date, displayProductName, money, payments, productImage, sizes, statuses } from './store'
 import './Admin.css'
 
-const sections = [['visao','Visão geral',LayoutGrid],['pedidos','Pedidos',ShoppingBag],['produtos','Produtos',Package],['estoque','Estoque',Boxes]]
+const sections = [['visao','Visão geral',LayoutGrid],['pedidos','Pedidos',ShoppingBag],['produtos','Produtos',Package]]
 
 function Overview({ data, select }) {
   const [period, setPeriod] = useState(7)
@@ -15,7 +15,7 @@ function Overview({ data, select }) {
   })
   const orders = data.orders.filter(item => days.includes(date(item.criado_em)))
   const approved = orders.filter(item => item.status_pagamento === 'aprovado')
-  const stocks = data.products.flatMap(product => product.estoque.map(item => ({ ...item, product: product.nome })))
+  const stocks = data.products.flatMap(product => product.estoque.map(item => ({ ...item, product: displayProductName(product) })))
   const low = stocks.filter(item => item.quantidade <= 3).toSorted((a,b) => a.quantidade - b.quantidade)
   const available = stocks.filter(item => item.quantidade > 0).length
   const lowCount = stocks.filter(item => item.quantidade > 0 && item.quantidade <= 3).length
@@ -41,7 +41,7 @@ function Overview({ data, select }) {
         <h1 id="dashboard-title">Bom dia, {firstName}.</h1>
         <p>Pedidos, pagamentos e estoque da Kinetra em um só lugar.</p>
       </div>
-      {featuredProduct && <div className="dashboard-hero-visual" aria-hidden="true"><span /><img src={productImage(featuredProduct, 'marinho')} alt="" /></div>}
+      {featuredProduct && <div className="dashboard-hero-visual" aria-hidden="true"><span /><img src={productImage(featuredProduct, 'gelo')} alt="" /></div>}
       <div className="dashboard-hero-tools">
         <div className="dashboard-date"><span>Hoje</span><strong>{date(new Date())}</strong></div>
         <label>Período<select value={period} onChange={e => setPeriod(Number(e.target.value))}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select></label>
@@ -100,27 +100,107 @@ function Overview({ data, select }) {
 function ProductEditor({ data, save }) {
   const [selected, setSelected] = useState('')
   const [confirm, setConfirm] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('todos')
   const item = data.catalog.find(product => product.id === selected)
-  return <div className="admin-content"><h1>Produtos</h1><div className="admin-list">{data.catalog.map(product => <button className="panel product-manage" key={product.id} onClick={() => setSelected(product.id)} aria-pressed={selected === product.id}><img src={productImage(product, 'marinho')} alt="" /><span><strong>{product.nome}</strong><small>{product.ativo ? 'Ativo' : 'Inativo'} · {money(product.preco)}</small></span></button>)}<button className="button outline" onClick={() => setSelected('')}>Novo produto</button></div>
-    <form className="panel" key={selected} onSubmit={e => save(e, async f => {
-      const value = JSON.parse(f.get('caracteristicas') || '{}')
-      if (!value || Array.isArray(value) || typeof value !== 'object') throw new Error('Informe as características como objeto JSON.')
-      await data.manageProduct({ nome: f.get('nome').trim(), slug: f.get('slug').trim(), descricao: f.get('descricao').trim(), preco: Number(f.get('preco')), ativo: f.has('ativo'), tecnologias: f.get('tecnologias').split(',').map(v => v.trim()).filter(Boolean), caracteristicas: value }, selected || null, f.get('imagens').split(/\r?\n/).map(v => v.trim()).filter(Boolean))
-      if (!selected) e.target.reset()
-    })}><h2>{item ? 'Editar produto' : 'Cadastrar produto'}</h2><div className="field-grid"><label>Nome<input name="nome" required defaultValue={item?.nome} /></label><label>Slug<input name="slug" required pattern="[a-z0-9-]+" defaultValue={item?.slug} /></label><label>Preço (R$)<input name="preco" type="number" min="0" step=".01" required defaultValue={item?.preco} /></label><label>Tecnologias (separadas por vírgulas)<input name="tecnologias" defaultValue={item?.tecnologias?.join(', ')} /></label></div><label>Descrição<textarea name="descricao" required defaultValue={item?.descricao} /></label><div className="field-grid"><label>Características (JSON)<textarea name="caracteristicas" defaultValue={JSON.stringify(item?.caracteristicas ?? {}, null, 2)} /></label><label>URLs de imagens (uma por linha)<textarea name="imagens" defaultValue={item?.produto_imagens?.toSorted((a,b) => a.ordem - b.ordem).map(img => img.url).join('\n')} /></label></div><label className="check"><input name="ativo" type="checkbox" defaultChecked={item?.ativo ?? true} /> Produto ativo</label><button className="button primary">Salvar produto</button></form>
-    {item && <form className="panel" key={'remover-' + selected} onSubmit={e => save(e, async () => { await data.removeProduct(item.id); setSelected(''); setConfirm(false) })}>
-      <label className="check"><input type="checkbox" required checked={confirm} onChange={e => setConfirm(e.target.checked)} /> Confirmo a exclusão de {item.nome}.</label>
-      <button className="button outline" disabled={!confirm}>Excluir produto</button>
-    </form>}
+  const activeCount = data.catalog.filter(product => product.ativo).length
+  const totalUnits = data.catalog.reduce((sum, product) => sum + (product.estoque ?? []).reduce((stockSum, row) => stockSum + Number(row.quantidade || 0), 0), 0)
+  const filtered = data.catalog.filter(product => {
+    const matchesText = `${displayProductName(product)} ${product.slug}`.toLowerCase().includes(query.toLowerCase())
+    const matchesStatus = filter === 'todos' || (filter === 'ativos' ? product.ativo : !product.ativo)
+    return matchesText && matchesStatus
+  })
+  const featured = data.catalog.find(product => product.ativo) ?? data.catalog[0]
+
+  function openEditor(product = null) {
+    setSelected(product?.id ?? '')
+    setConfirm(false)
+    setEditorOpen(true)
+  }
+
+  return <div className="admin-content products-admin">
+    <section className="catalog-hero" aria-labelledby="catalog-title">
+      <div className="catalog-hero-copy">
+        <p className="catalog-eyebrow"><span /> CATÁLOGO <i>·</i> PRODUTOS E ESTOQUE</p>
+        <h1 id="catalog-title">Produtos</h1>
+        <p>Gerencie seus modelos, acompanhe as numerações e mantenha o catálogo atualizado.</p>
+        <button className="button catalog-create-button" onClick={() => openEditor()}><Plus size={18} /> Cadastrar produto</button>
+      </div>
+      {featured && <div className="catalog-hero-shoe" aria-hidden="true"><span /><img src={productImage(featured, 'gelo')} alt="" /></div>}
+      <div className="catalog-stats" aria-label="Resumo do catálogo">
+        <div><strong>{data.catalog.length}</strong><span>Produtos cadastrados</span></div>
+        <div><strong>{activeCount}</strong><span>Ativos na loja</span></div>
+        <div><strong>{totalUnits}</strong><span>Unidades em estoque</span></div>
+      </div>
+    </section>
+
+    <div className="catalog-toolbar">
+      <label className="catalog-search"><Search size={18} aria-hidden="true" /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto pelo nome" aria-label="Buscar produto pelo nome" /></label>
+      <div className="catalog-filters" role="group" aria-label="Filtrar produtos por status">
+        {['todos', 'ativos', 'inativos'].map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}
+      </div>
+      <span className="catalog-result-count">{filtered.length} de {data.catalog.length} produtos</span>
+    </div>
+
+    {filtered.length ? <div className="catalog-product-list">{filtered.map(product => <CatalogProduct key={product.id} product={product} onEdit={() => openEditor(product)} manageStock={data.manageStock} save={save} />)}</div> :
+      <section className="catalog-empty"><span><Package size={23} /></span><h2>{data.catalog.length ? 'Nenhum produto encontrado' : 'Seu catálogo começa aqui'}</h2><p>{data.catalog.length ? 'Tente outro nome ou mude o filtro de status.' : 'Cadastre seu primeiro modelo para organizar preços e estoque.'}</p>{!data.catalog.length && <button className="button primary" onClick={() => openEditor()}><Plus size={17} /> Cadastrar produto</button>}</section>}
+
+    {editorOpen && <section className="catalog-editor" aria-labelledby="product-editor-title">
+      <div className="catalog-editor-heading"><div><p className="catalog-eyebrow">{item ? 'DETALHES DO CATÁLOGO' : 'NOVO NO CATÁLOGO'}</p><h2 id="product-editor-title">{item ? 'Editar produto' : 'Cadastrar produto'}</h2><p>Preencha as informações que aparecem na loja.</p></div><button type="button" className="catalog-close" aria-label="Fechar formulário" onClick={() => setEditorOpen(false)}><X size={19} /></button></div>
+      <form className="catalog-product-form" key={selected} onSubmit={e => save(e, async f => {
+        const value = JSON.parse(f.get('caracteristicas') || '{}')
+        if (!value || Array.isArray(value) || typeof value !== 'object') throw new Error('Informe as características como objeto JSON.')
+        await data.manageProduct({ nome: f.get('nome').trim(), slug: f.get('slug').trim(), descricao: f.get('descricao').trim(), preco: Number(f.get('preco')), ativo: f.has('ativo'), tecnologias: f.get('tecnologias').split(',').map(v => v.trim()).filter(Boolean), caracteristicas: value }, selected || null, f.get('imagens').split(/\r?\n/).map(v => v.trim()).filter(Boolean))
+        if (!selected) e.target.reset()
+      })}>
+        <div className="field-grid"><label>Nome do produto<input name="nome" required defaultValue={item?.nome} placeholder="Ex.: Adapt X 2050" /></label><label>Slug da página<input name="slug" required pattern="[a-z0-9-]+" defaultValue={item?.slug} placeholder="adapt-x-2050" /></label><label>Preço (R$)<input name="preco" type="number" min="0" step=".01" required defaultValue={item?.preco} placeholder="0,00" /></label><label>Tecnologias <small>Separe por vírgulas</small><input name="tecnologias" defaultValue={item?.tecnologias?.join(', ')} placeholder="Malha adaptativa, solado..." /></label></div>
+        <label>Descrição<textarea name="descricao" required defaultValue={item?.descricao} placeholder="Descreva o produto para a loja." /></label>
+        <div className="field-grid"><label>Características <small>Formato JSON</small><textarea name="caracteristicas" defaultValue={JSON.stringify(item?.caracteristicas ?? {}, null, 2)} /></label><label>Imagens <small>Uma URL por linha</small><textarea name="imagens" defaultValue={item?.produto_imagens?.toSorted((a,b) => a.ordem - b.ordem).map(img => img.url).join('\n')} placeholder="https://..." /></label></div>
+        <div className="catalog-form-footer"><label className="check"><input name="ativo" type="checkbox" defaultChecked={item?.ativo ?? true} /> Produto ativo na loja</label><button className="button primary">{item ? 'Salvar alterações' : 'Cadastrar produto'}</button></div>
+      </form>
+      {item && <form className="catalog-delete-form" key={'remover-' + selected} onSubmit={e => save(e, async () => { await data.removeProduct(item.id); setSelected(''); setConfirm(false); setEditorOpen(false) })}><label className="check"><input type="checkbox" required checked={confirm} onChange={e => setConfirm(e.target.checked)} /> Confirmo a exclusão de {displayProductName(item)}.</label><button className="button outline" disabled={!confirm}>Excluir produto</button></form>}
+    </section>}
   </div>
 }
 
-function StockEditor({ data, save }) {
-  const [selected, setSelected] = useState('')
-  const item = data.catalog.find(product => product.id === selected) ?? data.catalog[0]
-  return <div className="admin-content"><h1>Estoque</h1>{!item ? <p>Cadastre um produto para gerenciar o estoque.</p> : <><label>Produto<select value={item.id} onChange={e => setSelected(e.target.value)}>{data.catalog.map(product => <option key={product.id} value={product.id}>{product.nome}</option>)}</select></label>
-    <form className="panel row-form" key={item.id} onSubmit={e => save(e, f => data.manageStock(item, Number(f.get('numeracao')), Number(f.get('quantidade'))))}><label>Numeração<input name="numeracao" type="number" min="20" max="55" required /></label><label>Quantidade<input name="quantidade" type="number" min="0" required /></label><button className="button primary">Salvar estoque</button></form>
-    <div className="panel">{item.estoque.toSorted((a,b) => a.numeracao - b.numeracao).map(row => <div className="inventory-row" key={row.id}><strong>BR {row.numeracao}</strong><span>{row.quantidade} un.</span><span>{row.quantidade === 0 ? 'Esgotado' : row.quantidade <= 3 ? 'Estoque baixo' : 'Disponível'}</span></div>)}</div></>}</div>
+function CatalogProduct({ product, onEdit, manageStock, save }) {
+  const stock = (product.estoque ?? []).toSorted((a, b) => Number(a.numeracao) - Number(b.numeracao))
+  const availableSizes = [...new Set([...sizes, ...stock.map(row => Number(row.numeracao))])].sort((a, b) => a - b)
+  const [selectedSize, setSelectedSize] = useState(stock[0]?.numeracao ?? availableSizes[0])
+  const [quantityDrafts, setQuantityDrafts] = useState({})
+  const selectedRow = stock.find(row => Number(row.numeracao) === Number(selectedSize))
+  const quantity = quantityDrafts[selectedSize] ?? String(selectedRow?.quantidade ?? 0)
+  const totalUnits = stock.reduce((sum, row) => sum + Number(row.quantidade || 0), 0)
+  const lowSizes = stock.filter(row => Number(row.quantidade) > 0 && Number(row.quantidade) <= 3).length
+
+  return <article className="catalog-product-card">
+    <div className="catalog-product-info">
+      <div className="catalog-product-image"><img src={productImage(product, 'gelo')} alt="" loading="lazy" /></div>
+      <div className="catalog-product-details">
+        <div className="catalog-product-meta"><span className={'catalog-status ' + (product.ativo ? 'is-active' : 'is-inactive')}>{product.ativo ? 'Ativo' : 'Inativo'}</span><span className="catalog-slug"><Tag size={13} /> {product.slug}</span></div>
+        <h2>{displayProductName(product)}</h2>
+        <p>{product.descricao}</p>
+        <div className="catalog-product-bottom"><strong>{money(product.preco)}</strong><span>{stock.length} numerações</span></div>
+      </div>
+      <button className="catalog-edit-button" type="button" onClick={onEdit}><Pencil size={15} /> Editar produto</button>
+    </div>
+
+    <section className="catalog-stock" aria-label={'Estoque de ' + displayProductName(product)}>
+      <div className="catalog-stock-heading"><div><p className="catalog-eyebrow">INVENTÁRIO</p><h3>Estoque por numeração</h3></div><div className="catalog-stock-summary"><strong>{totalUnits}</strong><span>unidades</span>{lowSizes > 0 && <i>{lowSizes} em baixa</i>}</div></div>
+      <div className="catalog-size-grid">{availableSizes.map(numeracao => {
+        const row = stock.find(item => Number(item.numeracao) === Number(numeracao))
+        const amount = Number(row?.quantidade ?? 0)
+        const level = amount === 0 ? 'empty' : amount <= 3 ? 'low' : 'ready'
+        return <button key={numeracao} type="button" data-stock={level} aria-pressed={Number(selectedSize) === Number(numeracao)} aria-label={`Selecionar BR ${numeracao}, ${amount} unidades`} onClick={() => setSelectedSize(numeracao)}><small>BR {numeracao}</small><strong>{amount}</strong><span>un.</span></button>
+      })}</div>
+      <form className="catalog-stock-form" onSubmit={e => save(e, f => manageStock(product, Number(f.get('numeracao')), Number(f.get('quantidade'))))}>
+        <label>Atualizar<select name="numeracao" value={selectedSize} onChange={e => setSelectedSize(Number(e.target.value))}>{availableSizes.map(numeracao => <option key={numeracao} value={numeracao}>BR {numeracao}</option>)}</select></label>
+        <label>Unidades<input name="quantidade" type="number" min="0" required value={quantity} onChange={e => setQuantityDrafts(current => ({ ...current, [selectedSize]: e.target.value }))} /></label>
+        <button className="button outline">Salvar estoque</button>
+      </form>
+    </section>
+  </article>
 }
 
 function OrderEditor({ data, save }) {
@@ -129,10 +209,11 @@ function OrderEditor({ data, save }) {
 
 export function Admin({ data }) {
   const [params, setParams] = useSearchParams()
-  const tab = sections.find(([id]) => id === params.get('aba'))?.[0] ?? 'visao'
+  const requestedTab = params.get('aba')
+  const tab = requestedTab === 'estoque' ? 'produtos' : sections.find(([id]) => id === requestedTab)?.[0] ?? 'visao'
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
-  function select(value) { setParams({ aba: value }); setMessage(null) }
+  function select(value) { setParams({ aba: value === 'estoque' ? 'produtos' : value }); setMessage(null) }
   async function save(e, action) {
     e.preventDefault()
     if (busy) return
@@ -141,6 +222,6 @@ export function Admin({ data }) {
     try { await action(new FormData(e.currentTarget)); setMessage({ text: 'Alterações salvas.' }) } catch (error) { setMessage({ error: true, text: error.message }) } finally { setBusy(false) }
   }
   return <main className="dashboard"><aside className="dash-nav"><div className="dash-brand"><Link className="brand" to="/" aria-label="Voltar à loja"><span className="dash-brand-mark"><span className="dash-brand-letter">K</span><i className="dash-brand-dot" aria-hidden="true" /></span></Link><span><strong>KINETRA</strong><small>PAINEL ADMIN</small></span></div><p className="dash-nav-heading">MENU PRINCIPAL</p><nav aria-label="Administração">{sections.map(([id, label, Icon]) => <button className="dash-nav-item" key={id} aria-pressed={tab === id} onClick={() => select(id)}><Icon size={19} /><span>{label}</span><ArrowRight className="dash-nav-chevron" size={15} /></button>)}</nav><div className="dash-nav-spacer" /><Link className="dash-nav-store" to="/"><ArrowUpRight size={17} /><span>Ver loja</span></Link><button className="dash-nav-logout" onClick={() => data.logout().catch(error => setMessage({ error: true, text: error.message }))}><LogOut size={18} /><span>Sair</span></button></aside>
-    <div className="dash-main" aria-busy={busy}>{message && <p role={message.error ? 'alert' : 'status'} className={message.error ? 'error' : 'notice'}>{message.text}</p>}<div className="switch-content" key={tab}>{tab === 'visao' && <Overview data={data} select={select} />}{tab === 'produtos' && <ProductEditor data={data} save={save} />}{tab === 'estoque' && <StockEditor data={data} save={save} />}{tab === 'pedidos' && <OrderEditor data={data} save={save} />}</div></div>
+    <div className="dash-main" aria-busy={busy}>{message && <p role={message.error ? 'alert' : 'status'} className={message.error ? 'error' : 'notice'}>{message.text}</p>}<div className="switch-content" key={tab}>{tab === 'visao' && <Overview data={data} select={select} />}{tab === 'produtos' && <ProductEditor data={data} save={save} />}{tab === 'pedidos' && <OrderEditor data={data} save={save} />}</div></div>
   </main>
 }

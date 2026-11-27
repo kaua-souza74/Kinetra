@@ -24,10 +24,12 @@
 .tech-hero-art { position: relative; isolation: isolate; display: grid; place-items: center; min-width: 0; aspect-ratio: 1.28; }
 .tech-hero-art > span, .tech-orbits, .tech-hero-art img { grid-area: 1 / 1; }
 .tech-hero-art > span {
-  font: 800 clamp(4.7rem, 13vw, 13rem)/1 var(--display);
-  letter-spacing: -.02em;
+  font: 800 clamp(3rem, 7vw, 7.5rem)/1 var(--display);
+  letter-spacing: -.04em;
   color: transparent;
   -webkit-text-stroke: 1px #ffb89b65;
+  white-space: nowrap;
+  text-align: center;
 }
 .tech-orbits { width: 74%; aspect-ratio: 1; border-radius: 50%; border: 1px solid #ffa78049; box-shadow: 0 0 0 27px #ffa78012, 0 0 0 54px #ffa78008; }
 .tech-hero-art img { width: 104%; max-width: none; height: auto; rotate: -11deg; filter: drop-shadow(0 22px 18px #10111c9c); }
